@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Camera, X } from 'lucide-react';
