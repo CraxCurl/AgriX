@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ArrowRight } from 'lucide-react';
+import { AgriXMark } from '../components/BrandLogo';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
 
@@ -108,13 +109,8 @@ export default function Register() {
         {/* Decorative background pattern */}
         <div className="absolute inset-0 bg-dot-pattern bg-dot-size opacity-20"></div>
         
-        {/* Geometric Abstract Art */}
-        <div className="relative w-64 h-64 mb-12">
-          <div className="absolute top-0 left-0 w-48 h-48 bg-primary-yellow rounded-full border-4 border-black mix-blend-multiply"></div>
-          <div className="absolute bottom-0 right-0 w-48 h-48 bg-primary-red border-4 border-black mix-blend-multiply rotate-45"></div>
-          <div className="absolute top-1/4 right-1/4 w-32 h-32 bg-white border-4 border-black flex items-center justify-center">
-             <div className="w-16 h-16 bg-primary-blue border-4 border-black"></div>
-          </div>
+        <div className="relative z-10 mb-12">
+          <AgriXMark className="w-64 h-64 drop-shadow-[10px_10px_0_rgba(0,0,0,1)]" withBorder />
         </div>
 
         <h1 className="text-white text-6xl md:text-8xl relative z-10 text-center">AGRIX</h1>

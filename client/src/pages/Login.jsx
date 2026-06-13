@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ArrowRight, Code } from 'lucide-react';
+import { AgriXMark } from '../components/BrandLogo';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
 
@@ -62,19 +63,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
+    <div className="login-shell min-h-screen flex flex-col md:flex-row">
       {/* Left side: Branding / Decorative */}
-      <div className="w-full md:w-1/2 bg-primary-blue p-12 flex flex-col justify-center items-center relative overflow-hidden border-b-4 md:border-b-0 md:border-r-4 border-black">
+      <div className="login-brand-panel w-full md:w-1/2 bg-primary-blue p-12 flex flex-col justify-center items-center relative overflow-hidden border-b-4 md:border-b-0 md:border-r-4 border-black">
         {/* Decorative background pattern */}
         <div className="absolute inset-0 bg-dot-pattern bg-dot-size opacity-20"></div>
         
-        {/* Geometric Abstract Art */}
-        <div className="relative w-64 h-64 mb-12">
-          <div className="absolute top-0 left-0 w-48 h-48 bg-primary-red rounded-full border-4 border-black mix-blend-multiply"></div>
-          <div className="absolute bottom-0 right-0 w-48 h-48 bg-primary-yellow border-4 border-black mix-blend-multiply rotate-12"></div>
-          <div className="absolute top-1/4 right-1/4 w-32 h-32 bg-white border-4 border-black rotate-45 flex items-center justify-center">
-             <div className="w-16 h-16 bg-primary-blue rounded-full border-4 border-black"></div>
-          </div>
+        <div className="relative z-10 mb-12">
+          <AgriXMark className="w-64 h-64 drop-shadow-[10px_10px_0_rgba(0,0,0,1)]" withBorder />
         </div>
 
         <h1 className="text-white text-6xl md:text-8xl relative z-10 text-center">AGRIX</h1>
@@ -82,8 +78,12 @@ export default function Login() {
       </div>
 
       {/* Right side: Login Form */}
-      <div className="w-full md:w-1/2 bg-background p-8 md:p-16 flex flex-col justify-center">
-        <div className="max-w-md w-full mx-auto">
+      <div className="login-form-panel w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center relative overflow-hidden">
+        <div className="login-form-pattern" aria-hidden="true"></div>
+        <div className="login-accent login-accent-yellow" aria-hidden="true"></div>
+        <div className="login-accent login-accent-green" aria-hidden="true"></div>
+        <div className="login-accent login-accent-red" aria-hidden="true"></div>
+        <div className="max-w-md w-full mx-auto relative z-10">
           <Card decoration="triangle" decorationColor="bg-primary-red">
             <h2 className="text-4xl mb-6">LOGIN</h2>
             

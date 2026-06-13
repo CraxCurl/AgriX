@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { CloudRain, TrendingUp, Scan, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -380,18 +381,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="dashboard-shell min-h-screen bg-background">
       {/* Top Navigation */}
       <nav className="border-b-4 border-black bg-white px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          {/* Bauhaus Logo */}
-          <div className="flex gap-1">
-            <div className="w-4 h-4 bg-primary-red rounded-full border-2 border-black"></div>
-            <div className="w-4 h-4 bg-primary-blue border-2 border-black"></div>
-            <div className="w-4 h-4 bg-primary-yellow border-2 border-black" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
-          </div>
-          <span className="font-black text-2xl uppercase tracking-tighter ml-2">AGRIX</span>
-        </div>
+        <BrandLogo tagline="Smart Farming" markClassName="w-11 h-11" />
         <div className="flex items-center gap-4">
            <Button variant="ghost" shape="pill" onClick={() => navigate('/settings')} className="flex gap-2">
              <Settings size={18} />

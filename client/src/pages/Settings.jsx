@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { BrandLogo } from '../components/BrandLogo';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -102,17 +103,14 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="dashboard-shell settings-shell min-h-screen bg-background">
       <nav className="border-b-4 border-black bg-white px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/dashboard')}>
-          {/* Bauhaus Logo */}
-          <div className="flex gap-1">
-            <div className="w-4 h-4 bg-primary-red rounded-full border-2 border-black"></div>
-            <div className="w-4 h-4 bg-primary-blue border-2 border-black"></div>
-            <div className="w-4 h-4 bg-primary-yellow border-2 border-black" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div>
-          </div>
-          <span className="font-black text-2xl uppercase tracking-tighter ml-2">AGRIX</span>
-        </div>
+        <BrandLogo
+          className="cursor-pointer"
+          tagline="Smart Farming"
+          markClassName="w-11 h-11"
+          onClick={() => navigate('/dashboard')}
+        />
         <div className="flex items-center gap-4">
            <Button variant="outline" className="py-2 px-4 text-sm" onClick={() => navigate('/dashboard')}>{t('settings.back', 'Back')}</Button>
         </div>
