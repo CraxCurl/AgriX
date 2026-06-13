@@ -33,23 +33,194 @@ function getWeatherLabel(code) {
   return weatherCodeLabels[code] || 'Forecast Updated';
 }
 
-function buildIrrigationAdvice(forecast) {
+function buildIrrigationAdvice(forecast, t) {
   const rainChance = forecast.daily?.precipitation_probability_max?.[0] ?? 0;
   const weatherCode = forecast.current?.weather_code;
   const rainyNow = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
 
   if (rainyNow || rainChance >= 60) {
-    return 'Delay watering for 24-48 hours. Rain is likely in this forecast window.';
+    return t('dashboard.irrigation_advice_delay', 'Delay watering for 24-48 hours. Rain is likely in this forecast window.');
   }
 
   if (rainChance >= 30) {
-    return 'Use light irrigation and check soil moisture before watering deeply.';
+    return t('dashboard.irrigation_advice_light', 'Use light irrigation and check soil moisture before watering deeply.');
   }
 
-  return 'Water on the next cool morning or evening if the top soil feels dry.';
+  return t('dashboard.irrigation_advice_normal', 'Water on the next cool morning or evening if the top soil feels dry.');
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login', { replace: true });
+  };
+
+  const [userProfile, setUserProfile] = useState(null);
+  const [farmDescMissing, setFarmDescMissing] = useState(false);
+  const [bannerInputText, setBannerInputText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const [bannerStatus, setBannerStatus] = useState('idle'); // idle, recording, submitting
+  
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+  
+  const fetchUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile(data);
+        if (!data.farm_description) {
+          setFarmDescMissing(true);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const handleStartRecording = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast(t('settings.toast_mic_error', "Voice recognition not supported in this browser."), "error");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = i18n.language || 'en-US';
+      
+      let finalTranscript = '';
+      
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+        setBannerInputText(finalTranscript + interimTranscript);
+      };
+      
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        if (event.error !== 'no-speech') {
+          showToast(t('settings.toast_voice_fail', "Failed to process voice."), "error");
+        }
+        setIsRecording(false);
+        setBannerStatus('idle');
+      };
+      
+      recognition.onend = () => {
+        setIsRecording(false);
+        setBannerStatus('idle');
+      };
+
+      mediaRecorderRef.current = recognition; // Reuse the ref for SpeechRecognition instance
+      recognition.start();
+      setIsRecording(true);
+      setBannerStatus('recording');
+      setBannerInputText(''); // Clear previous text
+    } catch (err) {
+      console.error("Speech recognition setup error:", err);
+      showToast(t('settings.toast_mic_error', "Could not access microphone."), "error");
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const submitTextDescription = async () => {
+    if (!bannerInputText.trim()) return;
+    setBannerStatus('submitting');
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/farm-description/text`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ description: bannerInputText, language: i18n.language })
+      });
+      if (response.ok) {
+        setFarmDescMissing(false);
+        showToast(t('settings.toast_pref_success', 'Preferences saved successfully!'), 'success');
+        await fetchUser();
+      } else {
+        const errorData = await response.json().catch(() => null);
+        const errorMsg = errorData?.detail || t('settings.toast_pref_error', 'Error saving preferences.');
+        showToast(`Error: ${errorMsg}`, 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast(e.message || t('settings.toast_pref_error', 'Error saving preferences.'), 'error');
+    }
+    setBannerStatus('idle');
+  };
+
+  const marketData = userProfile?.marketData;
+  const marketDataArray = Array.isArray(marketData) ? marketData : (marketData ? [marketData] : []);
+  const marketStatus = marketDataArray.length > 0 ? 'success' : 'idle';
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+
+  const handleRefreshPrices = async () => {
+    setIsRefreshingPrices(true);
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/refresh-market-data`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ language: i18n.language })
+      });
+      if (response.ok) {
+        showToast(t('dashboard.toast_prices_refreshed', 'Prices refreshed successfully!'), 'success');
+        await fetchUser();
+      } else {
+        const errorData = await response.json().catch(() => null);
+        showToast(`Error: ${errorData?.detail || 'Failed to refresh prices'}`, 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast(e.message || 'Error refreshing prices', 'error');
+    }
+    setIsRefreshingPrices(false);
+  };
+
   const fileInputRef = useRef(null);
   const cropPreviewRef = useRef('');
   const videoRef = useRef(null);
@@ -82,12 +253,13 @@ export default function Dashboard() {
           setWeatherStatus('loading');
           const { latitude, longitude } = coords;
 
+          const langCode = i18n.language ? i18n.language.split('-')[0] : 'en';
           const [forecastResponse, placeResponse] = await Promise.all([
             fetch(
               `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=3`
             ),
             fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${langCode}`
             ),
           ]);
 
@@ -124,7 +296,7 @@ export default function Dashboard() {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
-  }, []);
+  }, [i18n.language]);
 
   useEffect(() => () => {
     if (cropPreviewRef.current) URL.revokeObjectURL(cropPreviewRef.current);
@@ -178,7 +350,7 @@ export default function Dashboard() {
   }, [weather]);
 
   const forecastLabel = weather ? getWeatherLabel(weather.current?.weather_code) : 'Waiting For Location';
-  const irrigationAdvice = weather ? buildIrrigationAdvice(weather) : 'Share your location to get local irrigation guidance.';
+  const irrigationAdvice = weather ? buildIrrigationAdvice(weather, t) : t('dashboard.irrigation_advice_waiting', 'Share your location to get local irrigation guidance.');
 
   function handleCropFile(file) {
     if (!file) return;
@@ -285,9 +457,55 @@ export default function Dashboard() {
         </div>
       </nav>
 
+      {/* Bauhaus Toast */}
+      {toast.show && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-in-out">
+          <div className={`px-6 py-4 border-4 border-black font-bold uppercase tracking-widest text-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${toast.type === 'error' ? 'bg-primary-red text-white' : 'bg-green-400 text-black'}`}>
+            {toast.message}
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 space-y-12">
         
+        {/* Farm Description Banner */}
+        {farmDescMissing && (
+          <div className="bg-primary-yellow border-4 border-black p-6 shadow-bauhaus-md relative">
+            <h2 className="text-2xl font-black uppercase mb-2">{t('dashboard.banner_title', 'Tell Us About Your Farm')}</h2>
+            <p className="font-bold mb-4">{t('dashboard.banner_desc', 'Please describe what you are farming and the size of your land so we can personalize your dashboard.')}</p>
+            <div className="flex flex-col md:flex-row gap-4">
+              <input 
+                type="text" 
+                value={bannerInputText}
+                onChange={e => setBannerInputText(e.target.value)}
+                placeholder={t('dashboard.banner_placeholder', "e.g., I farm 5 acres of wheat and rice...")} 
+                className="flex-1 border-4 border-black p-3 font-bold"
+                disabled={bannerStatus !== 'idle'}
+              />
+              <Button 
+                onClick={submitTextDescription} 
+                className="bg-black text-white"
+                disabled={bannerStatus !== 'idle' || !bannerInputText.trim()}
+              >
+                {bannerStatus === 'submitting' ? t('dashboard.saving', 'Saving...') : t('dashboard.submit_text', 'Submit Text')}
+              </Button>
+              <div className="hidden md:block w-1 bg-black"></div>
+              {isRecording ? (
+                <Button onClick={handleStopRecording} className="bg-primary-red text-white flex items-center gap-2">
+                  <Square size={16} fill="currentColor" /> {t('dashboard.stop_recording', 'Stop Recording')}
+                </Button>
+              ) : (
+                <Button onClick={handleStartRecording} className="bg-white text-black flex items-center gap-2 border-black" disabled={bannerStatus !== 'idle'}>
+                  <Mic size={16} /> {t('dashboard.record_voice', 'Record Voice')}
+                </Button>
+              )}
+            </div>
+            {bannerStatus === 'recording' && <p className="mt-2 text-primary-red font-bold animate-pulse">{t('dashboard.recording_speak', 'Recording... Speak now.')}</p>}
+            {bannerStatus === 'submitting' && <p className="mt-2 font-bold animate-pulse">{t('dashboard.processing_ai', 'Processing with AI...')}</p>}
+          </div>
+        )}
+
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
           <div>
@@ -445,24 +663,62 @@ export default function Dashboard() {
                     </div>
                     <h2 className="text-3xl md:text-4xl">MARKET PRICE</h2>
                   </div>
-                  <p className="font-medium max-w-lg mb-6">AI prediction for Wheat prices based on current market trends and historical data.</p>
-                  <Button variant="outline">View Full Report</Button>
+                  <p className="font-medium max-w-lg mb-6">{t('dashboard.market_desc_generic', 'AI prediction based on current market trends and historical data.')}</p>
+                  <Button variant="outline" onClick={handleViewReport}>{t('dashboard.view_report', 'View Full Report')}</Button>
                 </div>
-                
-                <div className="flex-1 w-full bg-white border-4 border-black p-6 shadow-bauhaus-md flex items-center justify-between">
-                   <div>
-                     <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Current Price</p>
-                     <p className="text-4xl font-black">$245 / Qtl</p>
-                   </div>
-                   <div className="w-1 bg-black self-stretch mx-4"></div>
-                   <div>
-                     <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Next Month (Est)</p>
-                     <p className="text-4xl font-black text-primary-red">$268 / Qtl</p>
-                   </div>
-                   <div className="bg-black text-white px-4 py-2 uppercase font-bold transform rotate-3">
-                      Sell Later
-                   </div>
-                </div>
+                <div className="flex-1 w-full flex flex-col gap-6">
+                    {marketStatus === 'success' && marketDataArray.length > 0 ? (
+                      <>
+                        <div className="flex justify-end mb-[-1rem]">
+                          <Button 
+                            variant="primary" 
+                            size="sm"
+                            className="bg-black text-white hover:bg-gray-800 z-10"
+                            onClick={handleRefreshPrices}
+                            disabled={isRefreshingPrices}
+                          >
+                            {isRefreshingPrices ? t('dashboard.refreshing', 'Refreshing...') : t('dashboard.refresh_prices', 'Refresh Prices')}
+                          </Button>
+                        </div>
+                        <div className="flex flex-col gap-6 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
+                          {marketDataArray.map((md, idx) => (
+                            <div key={idx} className="bg-white border-4 border-black p-6 shadow-bauhaus-md flex flex-col justify-center min-h-[120px]">
+                              <h3 className="text-xl font-black uppercase mb-4 pb-2 border-b-4 border-black inline-block">
+                                {md.crop}
+                              </h3>
+                              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
+                                <div className="text-center sm:text-left">
+                                  <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.current_price', 'Current Price')}</p>
+                                  <p className="text-3xl md:text-4xl font-black">₹{md.current_price_per_quintal} / {t('dashboard.qtl', 'Qtl')}</p>
+                                  {md.lastFetched && <p className="text-xs text-gray-500 mt-1 uppercase">Last Fetched: {new Date(md.lastFetched).toLocaleDateString()}</p>}
+                                </div>
+                                <div className="hidden sm:block w-1 bg-black self-stretch mx-4"></div>
+                                <div className="text-center sm:text-left">
+                                  <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.next_month', 'Next Month (Est)')}</p>
+                                  <p className="text-3xl md:text-4xl font-black text-primary-red">₹{md.predicted_price_next_month} / {t('dashboard.qtl', 'Qtl')}</p>
+                                </div>
+                                <div className="flex flex-col items-center gap-2 mt-4 sm:mt-0">
+                                  <div className={`text-white px-4 py-2 uppercase font-bold transform rotate-3 ${md.advice === 'Hold' ? 'bg-black' : 'bg-primary-red'}`}>
+                                     {md.advice === 'Hold' ? t('dashboard.hold', 'Hold') : t('dashboard.sell_now', 'Sell Now')}
+                                  </div>
+                                </div>
+                              </div>
+                              {md.graph_explanation && (
+                                <div className="mt-6 pt-4 border-t-4 border-black">
+                                  <h3 className="font-bold uppercase tracking-widest text-primary-red mb-2 text-sm">{t('dashboard.ai_analysis', 'AI Analysis')}</h3>
+                                  <p className="font-medium text-sm leading-relaxed">{md.graph_explanation}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="bg-white border-4 border-black p-6 shadow-bauhaus-md flex flex-col justify-center min-h-[120px] text-center">
+                        <p className="mb-4 font-bold uppercase">{t('dashboard.update_farm_desc_for_market', 'Update Farm Description to Generate Market Data')}</p>
+                      </div>
+                    )}
+                 </div>
              </div>
           </Card>
 
