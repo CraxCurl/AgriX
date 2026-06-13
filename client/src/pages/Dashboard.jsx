@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Camera, X } from 'lucide-react';
+import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -103,6 +103,14 @@ export default function Dashboard() {
   useEffect(() => {
     fetchUser();
   }, []);
+
+  const handleVoiceClick = () => {
+    if (isRecording) {
+      handleStopRecording();
+    } else {
+      handleStartRecording();
+    }
+  };
 
   const handleStartRecording = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -455,11 +463,17 @@ export default function Dashboard() {
           <span className="font-black text-2xl uppercase tracking-tighter ml-2">AGRIX</span>
         </div>
         <div className="flex items-center gap-4">
-           <Button variant="ghost" shape="pill" className="hidden md:flex gap-2">
-             <Mic size={18} />
-             Voice Command
+           <Button variant="ghost" shape="pill" onClick={() => navigate('/settings')} className="hidden md:flex gap-2">
+             <Settings size={18} />
+             {t('nav.settings', 'Settings')}
            </Button>
-           <Button variant="outline" className="py-2 px-4 text-sm">Logout</Button>
+           <Button variant="ghost" shape="pill" onClick={handleVoiceClick} className="hidden md:flex gap-2">
+             <Mic size={18} />
+             {isRecording ? t('nav.listening', 'Listening...') : t('nav.voice', 'Voice')}
+           </Button>
+           <Button variant="outline" onClick={handleLogout} className="py-2 px-4 text-sm">
+             {t('nav.logout', 'Logout')}
+           </Button>
         </div>
       </nav>
 
