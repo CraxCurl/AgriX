@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Square, Check } from 'lucide-react';
+import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const weatherCodeLabels = {
   0: 'Clear Sky',
@@ -52,149 +50,6 @@ function buildIrrigationAdvice(forecast) {
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const { t, i18n } = useTranslation();
-
-  useEffect(() => {
-    if (!localStorage.getItem('token')) {
-      navigate('/login', { replace: true });
-    }
-  }, [navigate]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login', { replace: true });
-  };
-
-  const [userProfile, setUserProfile] = useState(null);
-  const [farmDescMissing, setFarmDescMissing] = useState(false);
-  const [bannerInputText, setBannerInputText] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const [bannerStatus, setBannerStatus] = useState('idle'); // idle, recording, submitting
-  
-  useEffect(() => {
-    async function fetchUser() {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/user/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUserProfile(data);
-          if (!data.farm_description) {
-            setFarmDescMissing(true);
-          }
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    fetchUser();
-  }, []);
-
-  const handleStartRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await submitVoiceDescription(audioBlob);
-      };
-      mediaRecorder.start();
-      setIsRecording(true);
-      setBannerStatus('recording');
-    } catch (err) {
-      console.error("Microphone access denied or error:", err);
-      alert("Could not access microphone.");
-    }
-  };
-
-  const handleStopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
-    }
-  };
-
-  const submitVoiceDescription = async (blob) => {
-    setBannerStatus('submitting');
-    const token = localStorage.getItem('token');
-    const formData = new FormData();
-    formData.append('audio', blob, 'recording.webm');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/user/farm-description/voice`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      if (response.ok) {
-        setFarmDescMissing(false);
-      } else {
-        alert("Failed to process voice.");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error submitting voice.");
-    }
-    setBannerStatus('idle');
-  };
-
-  const submitTextDescription = async () => {
-    if (!bannerInputText.trim()) return;
-    setBannerStatus('submitting');
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/user/farm-description/text`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ description: bannerInputText })
-      });
-      if (response.ok) {
-        setFarmDescMissing(false);
-      } else {
-        alert("Failed to process text.");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error submitting text.");
-    }
-    setBannerStatus('idle');
-  };
-
-  const [marketData, setMarketData] = useState(null);
-  const [marketStatus, setMarketStatus] = useState('loading');
-  const [marketError, setMarketError] = useState('');
-
-  useEffect(() => {
-    async function fetchMarketData() {
-      try {
-        setMarketStatus('loading');
-        const response = await fetch(`${API_BASE_URL}/api/farming/price-prediction?crop=Wheat`);
-        if (!response.ok) throw new Error('Failed to load market data.');
-        const data = await response.json();
-        setMarketData(data);
-        setMarketStatus('success');
-      } catch (err) {
-        setMarketStatus('error');
-        setMarketError(err.message);
-      }
-    }
-    fetchMarketData();
-  }, []);
-
   const fileInputRef = useRef(null);
   const cropPreviewRef = useRef('');
   const [cropFile, setCropFile] = useState(null);
@@ -226,7 +81,7 @@ export default function Dashboard() {
 
           const [forecastResponse, placeResponse] = await Promise.all([
             fetch(
-              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=celsius&timezone=auto&forecast_days=3`
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=3`
             ),
             fetch(
               `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
@@ -347,10 +202,6 @@ export default function Dashboard() {
     }
   }
 
-  function handleViewReport() {
-    window.open('/report', '_blank');
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation */}
@@ -367,63 +218,25 @@ export default function Dashboard() {
         <div className="flex items-center gap-4">
            <Button variant="ghost" shape="pill" className="hidden md:flex gap-2">
              <Mic size={18} />
-             {t('nav.voice_command', 'Voice Command')}
+             Voice Command
            </Button>
-           <Button variant="outline" className="py-2 px-4 text-sm" onClick={() => navigate('/settings')}>{t('nav.settings', 'Settings')}</Button>
-           <Button variant="outline" className="py-2 px-4 text-sm" onClick={handleLogout}>{t('nav.logout', 'Logout')}</Button>
+           <Button variant="outline" className="py-2 px-4 text-sm">Logout</Button>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 space-y-12">
         
-        {/* Farm Description Banner */}
-        {farmDescMissing && (
-          <div className="bg-primary-yellow border-4 border-black p-6 shadow-bauhaus-md relative">
-            <h2 className="text-2xl font-black uppercase mb-2">Tell Us About Your Farm</h2>
-            <p className="font-bold mb-4">Please describe what you are farming and the size of your land so we can personalize your dashboard.</p>
-            <div className="flex flex-col md:flex-row gap-4">
-              <input 
-                type="text" 
-                value={bannerInputText}
-                onChange={e => setBannerInputText(e.target.value)}
-                placeholder="e.g., I farm 5 acres of wheat and rice..." 
-                className="flex-1 border-4 border-black p-3 font-bold"
-                disabled={bannerStatus !== 'idle'}
-              />
-              <Button 
-                onClick={submitTextDescription} 
-                className="bg-black text-white"
-                disabled={bannerStatus !== 'idle' || !bannerInputText.trim()}
-              >
-                {bannerStatus === 'submitting' ? 'Saving...' : 'Submit Text'}
-              </Button>
-              <div className="hidden md:block w-1 bg-black"></div>
-              {isRecording ? (
-                <Button onClick={handleStopRecording} className="bg-primary-red text-white flex items-center gap-2">
-                  <Square size={16} fill="currentColor" /> Stop Recording
-                </Button>
-              ) : (
-                <Button onClick={handleStartRecording} className="bg-white text-black flex items-center gap-2 border-black" disabled={bannerStatus !== 'idle'}>
-                  <Mic size={16} /> Record Voice
-                </Button>
-              )}
-            </div>
-            {bannerStatus === 'recording' && <p className="mt-2 text-primary-red font-bold animate-pulse">Recording... Speak now.</p>}
-            {bannerStatus === 'submitting' && <p className="mt-2 font-bold animate-pulse">Processing with AI...</p>}
-          </div>
-        )}
-
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
           <div>
-            <h1 className="text-6xl md:text-8xl" dangerouslySetInnerHTML={{ __html: t('dashboard.farm_overview', 'FARM<br/>OVERVIEW') }}></h1>
-            <p className="text-xl font-bold uppercase tracking-widest mt-4">{t('dashboard.welcome', 'Welcome back, Developer')}</p>
+            <h1 className="text-6xl md:text-8xl">FARM<br/>OVERVIEW</h1>
+            <p className="text-xl font-bold uppercase tracking-widest mt-4">Welcome back, Developer</p>
           </div>
           <div className="bg-primary-yellow border-4 border-black shadow-bauhaus-md p-4 rotate-2">
              <p className="font-bold uppercase flex items-center gap-2">
                <MapPin size={18} />
-               {t('dashboard.location', 'Location')}: {locationLabel}
+               Location: {locationLabel}
              </p>
           </div>
         </div>
@@ -434,12 +247,12 @@ export default function Dashboard() {
           {/* Disease Detection Card */}
           <Card decoration="circle" decorationColor="bg-primary-red" className="lg:col-span-2 group">
             <div className="flex justify-between items-start mb-8">
-              <h2 className="text-3xl md:text-4xl">{t('dashboard.scan_crop', 'CROP SCAN')}</h2>
+              <h2 className="text-3xl md:text-4xl">CROP SCAN</h2>
               <div className="w-12 h-12 bg-primary-red border-4 border-black rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Scan className="text-white" />
               </div>
             </div>
-            <p className="font-medium mb-8 max-w-md">{t('dashboard.scan_desc', 'Upload an image of your crop leaves to instantly detect diseases using our AI model.')}</p>
+            <p className="font-medium mb-8 max-w-md">Upload an image of your crop leaves to instantly detect diseases using our AI model.</p>
             <input
               ref={fileInputRef}
               className="hidden"
@@ -479,13 +292,13 @@ export default function Dashboard() {
                ) : (
                  <>
                    <UploadCloud size={36} />
-                   <span className="font-bold uppercase tracking-widest">{t('dashboard.drop_image', 'Drop Image Here Or Click To Upload')}</span>
+                   <span className="font-bold uppercase tracking-widest">Drop Image Here Or Click To Upload</span>
                  </>
                )}
             </div>
             <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
               <Button variant="primary" onClick={analyzeCrop} disabled={scanStatus === 'loading'}>
-                {scanStatus === 'loading' ? t('dashboard.analyzing', 'Analyzing...') : t('dashboard.analyze', 'Analyze Crop')}
+                {scanStatus === 'loading' ? 'Analyzing...' : 'Analyze Crop'}
               </Button>
               {cropFile && (
                 <Button
@@ -510,7 +323,7 @@ export default function Dashboard() {
           {/* Weather & Irrigation */}
           <Card decoration="square" decorationColor="bg-primary-blue" className="bg-primary-blue text-white group">
             <div className="flex justify-between items-start mb-8">
-              <h2 className="text-3xl md:text-4xl text-white">{t('dashboard.weather', 'WEATHER')}</h2>
+              <h2 className="text-3xl md:text-4xl text-white">WEATHER</h2>
               <div className="w-12 h-12 bg-white border-4 border-black flex items-center justify-center group-hover:scale-110 transition-transform">
                 <CloudRain className="text-primary-blue" />
               </div>
@@ -518,44 +331,19 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="border-b-4 border-black pb-4">
                 <p className="text-5xl font-black mb-2">
-                  {currentTemperature === null ? '--' : currentTemperature}°C
+                  {currentTemperature === null ? '--' : currentTemperature}°
                 </p>
                 <p className="font-bold uppercase">
-                  {weatherStatus === 'loading' ? t('dashboard.loading_forecast', 'Loading Local Forecast') : t(`weather.${weather?.current?.weather_code}`, forecastLabel)}
+                  {weatherStatus === 'loading' ? 'Loading Local Forecast' : forecastLabel}
                 </p>
                 {weatherError && <p className="font-medium mt-3 text-white">{weatherError}</p>}
               </div>
               <div>
-                <p className="font-bold uppercase tracking-widest mb-2">{t('dashboard.irrigation_advice', 'Irrigation Advice')}</p>
+                <p className="font-bold uppercase tracking-widest mb-2">Irrigation Advice</p>
                 <div className="bg-white text-black p-4 border-4 border-black font-medium">
                   {irrigationAdvice}
                 </div>
               </div>
-              
-              {weather?.daily?.time && (
-                <div>
-                  <p className="font-bold uppercase tracking-widest mb-2">{t('dashboard.forecast_3day', '3-Day Forecast')}</p>
-                  <div className="flex gap-2">
-                    {weather.daily.time.map((timeStr, index) => {
-                      const date = new Date(timeStr);
-                      // Adjust for local timezone interpretation issues with YYYY-MM-DD
-                      const dayName = new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString(i18n.language, { weekday: 'short' });
-                      const maxT = Math.round(weather.daily.temperature_2m_max[index]);
-                      const minT = Math.round(weather.daily.temperature_2m_min[index]);
-                      const code = weather.daily.weather_code[index];
-                      return (
-                        <div key={timeStr} className="flex-1 bg-white text-black border-4 border-black p-2 text-center">
-                          <p className="font-bold uppercase text-sm border-b-2 border-black pb-1 mb-1">{dayName}</p>
-                          <div className="h-10 flex items-center justify-center">
-                             <span className="text-xs font-bold leading-tight">{t(`weather.${code}`, getWeatherLabel(code))}</span>
-                          </div>
-                          <p className="font-black text-sm">{maxT}° <span className="text-gray-400 font-bold">{minT}°</span></p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -567,33 +355,25 @@ export default function Dashboard() {
                     <div className="w-12 h-12 bg-white border-4 border-black flex items-center justify-center" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}>
                       <TrendingUp className="text-black" size={20} />
                     </div>
-                    <h2 className="text-3xl md:text-4xl">{t('dashboard.market_price', 'MARKET PRICE')}</h2>
+                    <h2 className="text-3xl md:text-4xl">MARKET PRICE</h2>
                   </div>
-                  <p className="font-medium max-w-lg mb-6">{t('dashboard.market_desc', 'AI prediction for Wheat prices based on current market trends and historical data.')}</p>
-                  <Button variant="outline" onClick={handleViewReport}>{t('dashboard.view_report', 'View Full Report')}</Button>
+                  <p className="font-medium max-w-lg mb-6">AI prediction for Wheat prices based on current market trends and historical data.</p>
+                  <Button variant="outline">View Full Report</Button>
                 </div>
                 
-                <div className="flex-1 w-full bg-white border-4 border-black p-6 shadow-bauhaus-md flex items-center justify-between min-h-[120px]">
-                   {marketStatus === 'loading' ? (
-                     <p className="font-bold uppercase animate-pulse">Analyzing Market Data...</p>
-                   ) : marketStatus === 'error' ? (
-                     <p className="font-bold uppercase text-primary-red">{marketError}</p>
-                   ) : (
-                     <>
-                       <div>
-                         <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.current_price', 'Current Price')}</p>
-                         <p className="text-3xl md:text-4xl font-black">₹{marketData.current_price_per_quintal} / {t('dashboard.qtl', 'Qtl')}</p>
-                       </div>
-                       <div className="w-1 bg-black self-stretch mx-4"></div>
-                       <div>
-                         <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.next_month', 'Next Month (Est)')}</p>
-                         <p className="text-3xl md:text-4xl font-black text-primary-red">₹{marketData.predicted_price_next_month} / {t('dashboard.qtl', 'Qtl')}</p>
-                       </div>
-                       <div className={`text-white px-4 py-2 uppercase font-bold transform rotate-3 ${marketData.advice === 'Hold' ? 'bg-black' : 'bg-primary-red'}`}>
-                          {marketData.advice}
-                       </div>
-                     </>
-                   )}
+                <div className="flex-1 w-full bg-white border-4 border-black p-6 shadow-bauhaus-md flex items-center justify-between">
+                   <div>
+                     <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Current Price</p>
+                     <p className="text-4xl font-black">$245 / Qtl</p>
+                   </div>
+                   <div className="w-1 bg-black self-stretch mx-4"></div>
+                   <div>
+                     <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Next Month (Est)</p>
+                     <p className="text-4xl font-black text-primary-red">$268 / Qtl</p>
+                   </div>
+                   <div className="bg-black text-white px-4 py-2 uppercase font-bold transform rotate-3">
+                      Sell Later
+                   </div>
                 </div>
              </div>
           </Card>
