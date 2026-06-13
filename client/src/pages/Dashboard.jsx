@@ -1,9 +1,207 @@
-import React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, Mic } from 'lucide-react';
+import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin } from 'lucide-react';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+const weatherCodeLabels = {
+  0: 'Clear Sky',
+  1: 'Mainly Clear',
+  2: 'Partly Cloudy',
+  3: 'Overcast',
+  45: 'Foggy',
+  48: 'Rime Fog',
+  51: 'Light Drizzle',
+  53: 'Drizzle',
+  55: 'Heavy Drizzle',
+  61: 'Light Rain',
+  63: 'Rain',
+  65: 'Heavy Rain',
+  71: 'Light Snow',
+  73: 'Snow',
+  75: 'Heavy Snow',
+  80: 'Rain Showers',
+  81: 'Heavy Showers',
+  82: 'Violent Showers',
+  95: 'Thunderstorm',
+  96: 'Thunderstorm With Hail',
+  99: 'Severe Thunderstorm',
+};
+
+function getWeatherLabel(code) {
+  return weatherCodeLabels[code] || 'Forecast Updated';
+}
+
+function buildIrrigationAdvice(forecast) {
+  const rainChance = forecast.daily?.precipitation_probability_max?.[0] ?? 0;
+  const weatherCode = forecast.current?.weather_code;
+  const rainyNow = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weatherCode);
+
+  if (rainyNow || rainChance >= 60) {
+    return 'Delay watering for 24-48 hours. Rain is likely in this forecast window.';
+  }
+
+  if (rainChance >= 30) {
+    return 'Use light irrigation and check soil moisture before watering deeply.';
+  }
+
+  return 'Water on the next cool morning or evening if the top soil feels dry.';
+}
 
 export default function Dashboard() {
+  const fileInputRef = useRef(null);
+  const cropPreviewRef = useRef('');
+  const [cropFile, setCropFile] = useState(null);
+  const [cropPreview, setCropPreview] = useState('');
+  const [scanResult, setScanResult] = useState(null);
+  const [scanStatus, setScanStatus] = useState('idle');
+  const [scanError, setScanError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const [locationLabel, setLocationLabel] = useState('Requesting location...');
+  const [weather, setWeather] = useState(null);
+  const [weatherStatus, setWeatherStatus] = useState('loading');
+  const [weatherError, setWeatherError] = useState('');
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      window.setTimeout(() => {
+        setWeatherStatus('error');
+        setWeatherError('Location access is not supported by this browser.');
+        setLocationLabel('Location unavailable');
+      }, 0);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          setWeatherStatus('loading');
+          const { latitude, longitude } = coords;
+
+          const [forecastResponse, placeResponse] = await Promise.all([
+            fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=3`
+            ),
+            fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            ),
+          ]);
+
+          if (!forecastResponse.ok) {
+            throw new Error('Weather forecast could not be loaded.');
+          }
+
+          const forecast = await forecastResponse.json();
+          const place = placeResponse.ok ? await placeResponse.json() : null;
+          const locality = place?.city || place?.locality || place?.principalSubdivision;
+          const region = place?.principalSubdivisionCode || place?.principalSubdivision;
+
+          setWeather(forecast);
+          setLocationLabel(
+            [locality, region].filter(Boolean).join(', ') ||
+              `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`
+          );
+          setWeatherStatus('ready');
+          setWeatherError('');
+        } catch (error) {
+          setWeatherStatus('error');
+          setWeatherError(error.message || 'Weather forecast could not be loaded.');
+          setLocationLabel('Location detected');
+        }
+      },
+      (error) => {
+        setWeatherStatus('error');
+        setWeatherError(
+          error.code === error.PERMISSION_DENIED
+            ? 'Allow location access to show your local forecast.'
+            : 'Unable to detect your location.'
+        );
+        setLocationLabel('Location needed');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, []);
+
+  useEffect(() => () => {
+    if (cropPreviewRef.current) {
+      URL.revokeObjectURL(cropPreviewRef.current);
+    }
+  }, []);
+
+  const currentTemperature = useMemo(() => {
+    const temp = weather?.current?.temperature_2m;
+    return Number.isFinite(temp) ? Math.round(temp) : null;
+  }, [weather]);
+
+  const forecastLabel = weather ? getWeatherLabel(weather.current?.weather_code) : 'Waiting For Location';
+  const irrigationAdvice = weather ? buildIrrigationAdvice(weather) : 'Share your location to get local irrigation guidance.';
+
+  function handleCropFile(file) {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setScanError('Please upload an image file.');
+      return;
+    }
+
+    if (cropPreviewRef.current) {
+      URL.revokeObjectURL(cropPreviewRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    cropPreviewRef.current = objectUrl;
+    setCropFile(file);
+    setCropPreview(objectUrl);
+    setScanResult(null);
+    setScanError('');
+    setScanStatus('idle');
+  }
+
+  function clearCropFile() {
+    if (cropPreviewRef.current) {
+      URL.revokeObjectURL(cropPreviewRef.current);
+      cropPreviewRef.current = '';
+    }
+
+    setCropFile(null);
+    setCropPreview('');
+    setScanResult(null);
+    setScanError('');
+    setScanStatus('idle');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function analyzeCrop() {
+    if (!cropFile) {
+      setScanError('Choose or drop a crop image first.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', cropFile);
+
+    try {
+      setScanStatus('loading');
+      setScanError('');
+      const response = await fetch(`${API_BASE_URL}/api/farming/disease-detection`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Crop scan failed. Make sure the backend server is running.');
+      }
+
+      const result = await response.json();
+      setScanResult(result);
+      setScanStatus('success');
+    } catch (error) {
+      setScanStatus('error');
+      setScanError(error.message || 'Crop scan failed.');
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation */}
@@ -36,7 +234,10 @@ export default function Dashboard() {
             <p className="text-xl font-bold uppercase tracking-widest mt-4">Welcome back, Developer</p>
           </div>
           <div className="bg-primary-yellow border-4 border-black shadow-bauhaus-md p-4 rotate-2">
-             <p className="font-bold uppercase">Location: Modesto, CA</p>
+             <p className="font-bold uppercase flex items-center gap-2">
+               <MapPin size={18} />
+               Location: {locationLabel}
+             </p>
           </div>
         </div>
 
@@ -52,10 +253,71 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="font-medium mb-8 max-w-md">Upload an image of your crop leaves to instantly detect diseases using our AI model.</p>
-            <div className="border-4 border-dashed border-black p-8 text-center bg-gray-50 mb-6 cursor-pointer hover:bg-gray-100 transition-colors">
-               <span className="font-bold uppercase tracking-widest">Drop Image Here</span>
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              accept="image/*"
+              onChange={(event) => handleCropFile(event.target.files?.[0])}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragging(false);
+                handleCropFile(event.dataTransfer.files?.[0]);
+              }}
+              className={`border-4 border-dashed border-black p-6 text-center mb-6 cursor-pointer transition-colors min-h-44 flex flex-col items-center justify-center gap-4 ${
+                isDragging ? 'bg-primary-yellow' : 'bg-gray-50 hover:bg-gray-100'
+              }`}
+            >
+               {cropPreview ? (
+                 <>
+                   <img src={cropPreview} alt="Selected crop preview" className="max-h-56 w-full object-contain border-4 border-black bg-white" />
+                   <span className="font-bold uppercase tracking-widest break-all">{cropFile.name}</span>
+                 </>
+               ) : (
+                 <>
+                   <UploadCloud size={36} />
+                   <span className="font-bold uppercase tracking-widest">Drop Image Here Or Click To Upload</span>
+                 </>
+               )}
             </div>
-            <Button variant="primary">Analyze Crop</Button>
+            <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+              <Button variant="primary" onClick={analyzeCrop} disabled={scanStatus === 'loading'}>
+                {scanStatus === 'loading' ? 'Analyzing...' : 'Analyze Crop'}
+              </Button>
+              {cropFile && (
+                <Button
+                  variant="outline"
+                  onClick={clearCropFile}
+                >
+                  Remove Image
+                </Button>
+              )}
+            </div>
+            {scanError && <p className="mt-4 font-bold text-primary-red">{scanError}</p>}
+            {scanResult && (
+              <div className="mt-6 bg-white border-4 border-black p-4 shadow-bauhaus-md">
+                <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Scan Result</p>
+                <p className="text-3xl font-black uppercase">{scanResult.disease}</p>
+                <p className="font-bold mt-2">Confidence: {scanResult.confidence}%</p>
+                <p className="font-medium mt-2">{scanResult.recommendation}</p>
+              </div>
+            )}
           </Card>
 
           {/* Weather & Irrigation */}
@@ -68,13 +330,18 @@ export default function Dashboard() {
             </div>
             <div className="space-y-6">
               <div className="border-b-4 border-black pb-4">
-                <p className="text-5xl font-black mb-2">72°</p>
-                <p className="font-bold uppercase">Light Rain Expected</p>
+                <p className="text-5xl font-black mb-2">
+                  {currentTemperature === null ? '--' : currentTemperature}°
+                </p>
+                <p className="font-bold uppercase">
+                  {weatherStatus === 'loading' ? 'Loading Local Forecast' : forecastLabel}
+                </p>
+                {weatherError && <p className="font-medium mt-3 text-white">{weatherError}</p>}
               </div>
               <div>
                 <p className="font-bold uppercase tracking-widest mb-2">Irrigation Advice</p>
                 <div className="bg-white text-black p-4 border-4 border-black font-medium">
-                  Delay watering for 48 hours. Soil moisture is optimal at 45%.
+                  {irrigationAdvice}
                 </div>
               </div>
             </div>
