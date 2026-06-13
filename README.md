@@ -28,7 +28,7 @@ Create a `.env` file in the root of the project with the following:
 ```env
 MONGODB_URI=your_mongodb_connection_string
 RESEND_API_KEY=your_resend_api_key
-RESEND_FROM_EMAIL="AgriX <AgriX@yourdomain.com>"
+RESEND_FROM_EMAIL="AgriX <onboarding@resend.dev>"
 JWT_SECRET=your_secret_key
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
+import { CloudRain, TrendingUp, Scan, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -69,10 +69,7 @@ export default function Dashboard() {
   const [userProfile, setUserProfile] = useState(null);
   const [farmDescMissing, setFarmDescMissing] = useState(false);
   const [bannerInputText, setBannerInputText] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const [bannerStatus, setBannerStatus] = useState('idle'); // idle, recording, submitting
+  const [bannerStatus, setBannerStatus] = useState('idle'); // idle, submitting
   
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -103,73 +100,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchUser();
   }, []);
-
-  const handleVoiceClick = () => {
-    if (isRecording) {
-      handleStopRecording();
-    } else {
-      handleStartRecording();
-    }
-  };
-
-  const handleStartRecording = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      showToast(t('settings.toast_mic_error', "Voice recognition not supported in this browser."), "error");
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = i18n.language || 'en-US';
-      
-      let finalTranscript = '';
-      
-      recognition.onresult = (event) => {
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-        setBannerInputText(finalTranscript + interimTranscript);
-      };
-      
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
-        if (event.error !== 'no-speech') {
-          showToast(t('settings.toast_voice_fail', "Failed to process voice."), "error");
-        }
-        setIsRecording(false);
-        setBannerStatus('idle');
-      };
-      
-      recognition.onend = () => {
-        setIsRecording(false);
-        setBannerStatus('idle');
-      };
-
-      mediaRecorderRef.current = recognition; // Reuse the ref for SpeechRecognition instance
-      recognition.start();
-      setIsRecording(true);
-      setBannerStatus('recording');
-      setBannerInputText(''); // Clear previous text
-    } catch (err) {
-      console.error("Speech recognition setup error:", err);
-      showToast(t('settings.toast_mic_error', "Could not access microphone."), "error");
-    }
-  };
-
-  const handleStopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
 
   const submitTextDescription = async () => {
     if (!bannerInputText.trim()) return;
@@ -363,7 +293,7 @@ export default function Dashboard() {
     return Number.isFinite(temp) ? Math.round(temp) : null;
   }, [weather]);
 
-  const forecastLabel = weather ? getWeatherLabel(weather.current?.weather_code) : 'Waiting For Location';
+  const forecastLabel = weather ? t(`weather.${weather.current?.weather_code}`, getWeatherLabel(weather.current?.weather_code)) : t('dashboard.waiting_location', 'Waiting For Location');
   const irrigationAdvice = weather ? buildIrrigationAdvice(weather, t) : t('dashboard.irrigation_advice_waiting', 'Share your location to get local irrigation guidance.');
 
   function handleCropFile(file) {
@@ -463,13 +393,9 @@ export default function Dashboard() {
           <span className="font-black text-2xl uppercase tracking-tighter ml-2">AGRIX</span>
         </div>
         <div className="flex items-center gap-4">
-           <Button variant="ghost" shape="pill" onClick={() => navigate('/settings')} className="hidden md:flex gap-2">
+           <Button variant="ghost" shape="pill" onClick={() => navigate('/settings')} className="flex gap-2">
              <Settings size={18} />
-             {t('nav.settings', 'Settings')}
-           </Button>
-           <Button variant="ghost" shape="pill" onClick={handleVoiceClick} className="hidden md:flex gap-2">
-             <Mic size={18} />
-             {isRecording ? t('nav.listening', 'Listening...') : t('nav.voice', 'Voice')}
+             <span className="hidden md:inline">{t('nav.settings', 'Settings')}</span>
            </Button>
            <Button variant="outline" onClick={handleLogout} className="py-2 px-4 text-sm">
              {t('nav.logout', 'Logout')}
@@ -510,14 +436,6 @@ export default function Dashboard() {
               >
                 {bannerStatus === 'submitting' ? t('dashboard.saving', 'Saving...') : t('dashboard.submit_text', 'Submit Text')}
               </Button>
-              <div className="hidden md:block w-1 bg-black"></div>
-              {isRecording ? (
-                <Button onClick={handleStopRecording} className="bg-primary-red text-white flex items-center gap-2">
-                  <Square size={16} fill="currentColor" /> {t('dashboard.stop_recording', 'Stop Recording')}
-                </Button>
-              ) : (
-                <Button onClick={handleStartRecording} className="bg-white text-black flex items-center gap-2 border-black" disabled={bannerStatus !== 'idle'}>
-                  <Mic size={16} /> {t('dashboard.record_voice', 'Record Voice')}
                 </Button>
               )}
             </div>
@@ -530,12 +448,12 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
           <div>
             <h1 className="text-6xl md:text-8xl" dangerouslySetInnerHTML={{ __html: t('dashboard.farm_overview', 'FARM<br/>OVERVIEW') }}></h1>
-            <p className="text-xl font-bold uppercase tracking-widest mt-4">{t('dashboard.welcome_back', 'Welcome back, Developer')}</p>
+            <p className="text-xl font-bold uppercase tracking-widest mt-4">{t('dashboard.welcome', 'Welcome back, Developer')}</p>
           </div>
           <div className="bg-primary-yellow border-4 border-black shadow-bauhaus-md p-4 rotate-2">
              <p className="font-bold uppercase flex items-center gap-2">
                <MapPin size={18} />
-               Location: {locationLabel}
+               {t('dashboard.location', 'Location')}: {locationLabel}
              </p>
           </div>
         </div>
@@ -551,7 +469,7 @@ export default function Dashboard() {
                 <Scan className="text-white" />
               </div>
             </div>
-            <p className="font-medium max-w-lg mb-8">{t('dashboard.crop_scan_desc', 'Upload an image of your crop leaves to instantly detect diseases using our AI model.')}</p>
+            <p className="font-medium max-w-lg mb-8">{t('dashboard.scan_desc', 'Upload an image of your crop leaves to instantly detect diseases using our AI model.')}</p>
             <input
               ref={fileInputRef}
               className="hidden"
@@ -591,20 +509,20 @@ export default function Dashboard() {
                ) : (
                  <>
                    <UploadCloud size={36} />
-                   <span className="font-bold uppercase tracking-widest">Drop Image Here Or Click To Upload</span>
+                   <span className="font-bold uppercase tracking-widest">{t('dashboard.drop_image', 'Drop Image Here Or Click To Upload')}</span>
                  </>
                )}
             </div>
             <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
               <Button variant="primary" onClick={analyzeCrop} disabled={scanStatus === 'loading'}>
-                {scanStatus === 'loading' ? 'Analyzing...' : 'Analyze Crop'}
+                {scanStatus === 'loading' ? t('dashboard.analyzing', 'Analyzing...') : t('dashboard.analyze', 'Analyze Crop')}
               </Button>
               <Button variant="outline" onClick={openCamera} className="flex items-center gap-2">
-                <Camera size={18} /> Use Camera
+                <Camera size={18} /> {t('dashboard.use_camera', 'Use Camera')}
               </Button>
               {cropFile && (
                 <Button variant="outline" onClick={clearCropFile}>
-                  Remove Image
+                  {t('dashboard.remove_image', 'Remove Image')}
                 </Button>
               )}
             </div>
@@ -685,7 +603,7 @@ export default function Dashboard() {
                         <div key={timeStr} className="flex-1 bg-white text-black border-4 border-black p-2 text-center">
                           <p className="font-bold uppercase text-sm border-b-2 border-black pb-1 mb-1">{dayName}</p>
                           <div className="h-10 flex items-center justify-center">
-                            <span className="text-xs font-bold leading-tight">{getWeatherLabel(code)}</span>
+                            <span className="text-xs font-bold leading-tight">{t(`weather.${code}`, getWeatherLabel(code))}</span>
                           </div>
                           <p className="font-black text-sm">{maxT}° <span className="text-gray-400 font-bold">{minT}°</span></p>
                         </div>
@@ -707,7 +625,7 @@ export default function Dashboard() {
                     </div>
                     <h2 className="text-3xl md:text-4xl">{t('dashboard.market_price', 'MARKET PRICE')}</h2>
                   </div>
-                  <p className="font-medium max-w-lg mb-6">{t('dashboard.market_desc_generic', 'AI prediction based on current market trends and historical data.')}</p>
+                  <p className="font-medium max-w-lg mb-6">{t('dashboard.market_desc', 'AI prediction based on current market trends and historical data.')}</p>
                   <Button variant="outline" onClick={handleViewReport}>{t('dashboard.view_report', 'View Full Report')}</Button>
                 </div>
                 <div className="flex-1 w-full flex flex-col gap-6">
@@ -728,13 +646,13 @@ export default function Dashboard() {
                           {marketDataArray.map((md, idx) => (
                             <div key={idx} className="bg-white border-4 border-black p-6 shadow-bauhaus-md flex flex-col justify-center min-h-[120px]">
                               <h3 className="text-xl font-black uppercase mb-4 pb-2 border-b-4 border-black inline-block">
-                                {md.crop}
+                                {t('settings.' + md.crop.toLowerCase().replace(/ \/ .*/, '').replace(/ /g, '_'), md.crop)}
                               </h3>
                               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
                                 <div className="text-center sm:text-left">
                                   <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.current_price', 'Current Price')}</p>
                                   <p className="text-3xl md:text-4xl font-black">₹{md.current_price_per_quintal} / {t('dashboard.qtl', 'Qtl')}</p>
-                                  {md.lastFetched && <p className="text-xs text-gray-500 mt-1 uppercase">Last Fetched: {new Date(md.lastFetched).toLocaleDateString()}</p>}
+                                  {md.lastFetched && <p className="text-xs text-gray-500 mt-1 uppercase">{t('dashboard.last_fetched', 'Last Fetched')}: {new Date(md.lastFetched).toLocaleDateString()}</p>}
                                 </div>
                                 <div className="hidden sm:block w-1 bg-black self-stretch mx-4"></div>
                                 <div className="text-center sm:text-left">

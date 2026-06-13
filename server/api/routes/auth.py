@@ -112,7 +112,7 @@ def send_otp_email(to_email: str, otp: str, context: str = "registration"):
     """
     
     try:
-        from_email = os.getenv("RESEND_FROM_EMAIL", "AgriX <AgriX@stigz.xyz>")
+        from_email = os.getenv("RESEND_FROM_EMAIL", "AgriX <onboarding@resend.dev>")
         r = resend.Emails.send({
             "from": from_email,
             "to": to_email,

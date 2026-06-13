@@ -85,7 +85,7 @@ export default function Report() {
           </Card>
         ))}
         <div className="mt-8 text-center">
-          <Button onClick={() => window.close()} className="w-full sm:w-auto px-12 py-4">{t('report.close_report', 'Close Report')}</Button>
+          <Button onClick={() => navigate('/dashboard')} className="w-full sm:w-auto px-12 py-4">{t('report.close_report', 'Close Report')}</Button>
         </div>
       </div>
     </div>

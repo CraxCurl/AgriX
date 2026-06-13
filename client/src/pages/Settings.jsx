@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Mic, Square } from 'lucide-react';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -16,10 +15,7 @@ export default function Settings() {
   const [primaryCrop, setPrimaryCrop] = useState('Wheat');
   const [farmDescription, setFarmDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -50,61 +46,6 @@ export default function Settings() {
   useEffect(() => {
     fetchUser();
   }, []);
-
-  const handleStartRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await submitVoiceDescription(audioBlob);
-      };
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Microphone access denied or error:", err);
-      showToast(t('settings.toast_mic_error', "Could not access microphone."), "error");
-    }
-  };
-
-  const handleStopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
-    }
-  };
-
-  const submitVoiceDescription = async (blob) => {
-    setIsSaving(true);
-    const token = localStorage.getItem('token');
-    const formData = new FormData();
-    formData.append('audio', blob, 'recording.webm');
-    formData.append('language', i18n.language);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/user/farm-description/voice`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      if (response.ok) {
-        await fetchUser();
-        showToast(t('settings.toast_voice_success', 'Voice description processed and saved successfully!'), 'success');
-      } else {
-        const errorData = await response.json().catch(() => null);
-        showToast(`Failed to process voice: ${errorData?.detail || 'Unknown error'}`, "error");
-      }
-    } catch (e) {
-      console.error(e);
-      showToast(`Error submitting voice: ${e.message}`, "error");
-    }
-    setIsSaving(false);
-  };
 
   useEffect(() => {
     // Sync state with i18n just in case it was changed elsewhere
@@ -253,18 +194,6 @@ export default function Settings() {
                 <label className="block font-bold uppercase tracking-widest text-sm">
                   {t('settings.farm_desc', 'Farm Description (AI Processed)')}
                 </label>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="flex items-center gap-2 text-xs py-1"
-                    onClick={isRecording ? handleStopRecording : handleStartRecording}
-                    disabled={isSaving}
-                  >
-                    {isRecording ? <Square className="w-3 h-3 text-red-500 fill-current" /> : <Mic className="w-3 h-3" />}
-                    {isRecording ? t('settings.stop_recording', 'Stop') : t('settings.use_voice', 'Use Voice')}
-                  </Button>
-                </div>
               </div>
               <p className="text-sm text-gray-500 mb-4 font-medium">
                 {t('settings.farm_desc_helper', 'Update your farm description to automatically detect crops and land size.')}
