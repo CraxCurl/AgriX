@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin } from 'lucide-react';
@@ -50,6 +51,19 @@ function buildIrrigationAdvice(forecast) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login', { replace: true });
+  };
+
   const fileInputRef = useRef(null);
   const cropPreviewRef = useRef('');
   const [cropFile, setCropFile] = useState(null);
@@ -81,7 +95,7 @@ export default function Dashboard() {
 
           const [forecastResponse, placeResponse] = await Promise.all([
             fetch(
-              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=3`
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=celsius&timezone=auto&forecast_days=3`
             ),
             fetch(
               `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
@@ -220,7 +234,7 @@ export default function Dashboard() {
              <Mic size={18} />
              Voice Command
            </Button>
-           <Button variant="outline" className="py-2 px-4 text-sm">Logout</Button>
+           <Button variant="outline" className="py-2 px-4 text-sm" onClick={handleLogout}>Logout</Button>
         </div>
       </nav>
 
@@ -331,7 +345,7 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="border-b-4 border-black pb-4">
                 <p className="text-5xl font-black mb-2">
-                  {currentTemperature === null ? '--' : currentTemperature}°
+                  {currentTemperature === null ? '--' : currentTemperature}°C
                 </p>
                 <p className="font-bold uppercase">
                   {weatherStatus === 'loading' ? 'Loading Local Forecast' : forecastLabel}
@@ -344,6 +358,31 @@ export default function Dashboard() {
                   {irrigationAdvice}
                 </div>
               </div>
+              
+              {weather?.daily?.time && (
+                <div>
+                  <p className="font-bold uppercase tracking-widest mb-2">3-Day Forecast</p>
+                  <div className="flex gap-2">
+                    {weather.daily.time.map((timeStr, index) => {
+                      const date = new Date(timeStr);
+                      // Adjust for local timezone interpretation issues with YYYY-MM-DD
+                      const dayName = new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('en-US', { weekday: 'short' });
+                      const maxT = Math.round(weather.daily.temperature_2m_max[index]);
+                      const minT = Math.round(weather.daily.temperature_2m_min[index]);
+                      const code = weather.daily.weather_code[index];
+                      return (
+                        <div key={timeStr} className="flex-1 bg-white text-black border-4 border-black p-2 text-center">
+                          <p className="font-bold uppercase text-sm border-b-2 border-black pb-1 mb-1">{dayName}</p>
+                          <div className="h-10 flex items-center justify-center">
+                             <span className="text-xs font-bold leading-tight">{getWeatherLabel(code)}</span>
+                          </div>
+                          <p className="font-black text-sm">{maxT}° <span className="text-gray-400 font-bold">{minT}°</span></p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 

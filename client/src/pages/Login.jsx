@@ -1,28 +1,58 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ArrowRight, Code } from 'lucide-react';
 
 export default function Login() {
-  const [step, setStep] = useState('email'); // email or otp
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSendOTP = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (email) setStep('otp');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('token', data.access_token);
+        navigate('/dashboard');
+      } else {
+        setError(data.detail || data.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleVerifyOTP = (e) => {
-    e.preventDefault();
-    // Simulate successful login
-    navigate('/dashboard');
-  };
-
-  const handleSandboxLogin = () => {
-    // Simulate developer login
-    navigate('/dashboard');
+  const handleSandboxLogin = async () => {
+    try {
+      const response = await fetch('/api/auth/sandbox-login', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('token', data.access_token);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -49,47 +79,45 @@ export default function Login() {
       <div className="w-full md:w-1/2 bg-background p-8 md:p-16 flex flex-col justify-center">
         <div className="max-w-md w-full mx-auto">
           <Card decoration="triangle" decorationColor="bg-primary-red">
-            <h2 className="text-4xl mb-6">{step === 'email' ? 'ACCESS' : 'VERIFY'}</h2>
+            <h2 className="text-4xl mb-6">LOGIN</h2>
             
-            {step === 'email' ? (
-              <form onSubmit={handleSendOTP} className="space-y-6">
-                <div>
-                  <label className="block font-bold uppercase tracking-widest mb-2">Email Address</label>
-                  <input 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bauhaus-input"
-                    placeholder="farmer@example.com"
-                    required
-                  />
+            <form onSubmit={handleLogin} className="space-y-6">
+              {error && (
+                <div className="bg-primary-red text-white p-3 font-bold">
+                  {error}
                 </div>
-                <Button type="submit" variant="primary" className="w-full flex justify-between items-center group">
-                  <span>Send OTP</span>
-                  <ArrowRight className="group-hover:translate-x-2 transition-transform" />
-                </Button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOTP} className="space-y-6">
-                 <div>
-                  <label className="block font-bold uppercase tracking-widest mb-2">Enter OTP</label>
-                  <input 
-                    type="text" 
-                    className="bauhaus-input text-center text-2xl tracking-widest"
-                    placeholder="• • • • • •"
-                    maxLength={6}
-                    required
-                  />
-                </div>
-                <Button type="submit" variant="yellow" className="w-full flex justify-between items-center group">
-                  <span>Verify & Login</span>
-                  <ArrowRight className="group-hover:translate-x-2 transition-transform" />
-                </Button>
-                <button type="button" onClick={() => setStep('email')} className="text-sm font-bold uppercase underline mt-4 block w-full text-center">
-                  Back to Email
-                </button>
-              </form>
-            )}
+              )}
+              <div>
+                <label className="block font-bold uppercase tracking-widest mb-2">Email Address</label>
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bauhaus-input w-full"
+                  placeholder="farmer@example.com"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-bold uppercase tracking-widest mb-2">Password</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bauhaus-input w-full"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <Button type="submit" variant="primary" className="w-full flex justify-between items-center group" disabled={loading}>
+                <span>{loading ? 'Logging in...' : 'Login'}</span>
+                <ArrowRight className="group-hover:translate-x-2 transition-transform" />
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center font-bold">
+              Don't have an account? <Link to="/register" className="underline hover:text-primary-red">Register here</Link>
+            </div>
           </Card>
 
           {/* Sandbox Login */}
