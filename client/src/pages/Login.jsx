@@ -44,8 +44,12 @@ export default function Login() {
 
   const handleSandboxLogin = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/sandbox-login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'dev@agrix.com', password: 'sandbox' }),
       });
       const data = await response.json();
       if (response.ok) {

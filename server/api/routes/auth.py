@@ -19,6 +19,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     name: str
+    language: str = "en"
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -124,6 +125,7 @@ async def register_user(user: UserCreate):
     user_dict = {
         "email": user.email,
         "name": user.name,
+        "language": user.language,
         "hashed_password": hashed_password,
         "is_verified": False
     }

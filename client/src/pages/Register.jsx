@@ -11,6 +11,7 @@ export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [language, setLanguage] = useState('en');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -29,7 +30,7 @@ export default function Register() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, language }),
       });
 
       const data = await response.json();
@@ -172,6 +173,21 @@ export default function Register() {
                     required
                     minLength={6}
                   />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase tracking-widest mb-2">Preferred Language</label>
+                  <select 
+                    value={language} 
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="bauhaus-input w-full bg-white"
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी (Hindi)</option>
+                    <option value="mr">मराठी (Marathi)</option>
+                    <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                    <option value="te">తెలుగు (Telugu)</option>
+                    <option value="ta">தமிழ் (Tamil)</option>
+                  </select>
                 </div>
                 <Button type="submit" variant="primary" className="w-full flex justify-between items-center group" disabled={loading}>
                   <span>{loading ? 'Registering...' : 'Create Account'}</span>

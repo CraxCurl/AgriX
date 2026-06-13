@@ -12,6 +12,10 @@ const resources = {
         logout: "Logout",
       },
       dashboard: {
+        farm_overview: "FARM<br/>OVERVIEW",
+        welcome: "Welcome back, Developer",
+        location: "Location",
+        loading_forecast: "Loading Local Forecast",
         weather: "WEATHER",
         irrigation_advice: "Irrigation Advice",
         forecast_3day: "3-Day Forecast",
@@ -33,7 +37,11 @@ const resources = {
         land_size: "Land Size Unit",
         primary_crop: "Primary Crop",
         save: "Save Preferences",
+        save: "Save Preferences",
       },
+      weather: {
+        0: 'Clear Sky', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast', 45: 'Foggy', 48: 'Rime Fog', 51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle', 61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain', 71: 'Light Snow', 73: 'Snow', 75: 'Heavy Snow', 80: 'Rain Showers', 81: 'Heavy Showers', 82: 'Violent Showers', 95: 'Thunderstorm', 96: 'Thunderstorm With Hail', 99: 'Severe Thunderstorm'
+      }
     },
   },
   hi: {
@@ -44,6 +52,10 @@ const resources = {
         logout: "लॉगआउट",
       },
       dashboard: {
+        farm_overview: "फार्म<br/>अवलोकन",
+        welcome: "वापसी पर स्वागत है, डेवलपर",
+        location: "स्थान",
+        loading_forecast: "स्थानीय पूर्वानुमान लोड हो रहा है",
         weather: "मौसम",
         irrigation_advice: "सिंचाई सलाह",
         forecast_3day: "3-दिन का पूर्वानुमान",
@@ -66,6 +78,9 @@ const resources = {
         primary_crop: "मुख्य फसल",
         save: "सेटिंग्स सहेजें",
       },
+      weather: {
+        0: 'साफ आसमान', 1: 'मुख्यतः साफ', 2: 'आंशिक रूप से बादल', 3: 'बादल छाए रहेंगे', 45: 'कोहरा', 48: 'घना कोहरा', 51: 'हल्की बूंदाबांदी', 53: 'बूंदाबांदी', 55: 'भारी बूंदाबांदी', 61: 'हल्की बारिश', 63: 'बारिश', 65: 'भारी बारिश', 71: 'हल्की बर्फबारी', 73: 'बर्फबारी', 75: 'भारी बर्फबारी', 80: 'बारिश की फुहारें', 81: 'भारी फुहारें', 82: 'भयंकर फुहारें', 95: 'आंधी तूफान', 96: 'ओलों के साथ आंधी', 99: 'भयंकर आंधी तूफान'
+      }
     },
   },
   mr: {
