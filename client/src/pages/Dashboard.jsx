@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin } from 'lucide-react';
+import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Camera, X } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -52,12 +52,15 @@ function buildIrrigationAdvice(forecast) {
 export default function Dashboard() {
   const fileInputRef = useRef(null);
   const cropPreviewRef = useRef('');
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
   const [cropPreview, setCropPreview] = useState('');
   const [scanResult, setScanResult] = useState(null);
   const [scanStatus, setScanStatus] = useState('idle');
   const [scanError, setScanError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
   const [locationLabel, setLocationLabel] = useState('Requesting location...');
   const [weather, setWeather] = useState(null);
   const [weatherStatus, setWeatherStatus] = useState('loading');
@@ -124,10 +127,50 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => () => {
-    if (cropPreviewRef.current) {
-      URL.revokeObjectURL(cropPreviewRef.current);
-    }
+    if (cropPreviewRef.current) URL.revokeObjectURL(cropPreviewRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
   }, []);
+
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play();
+    }
+  }, [cameraActive]);
+
+  async function openCamera() {
+    setScanError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      streamRef.current = stream;
+      setCameraActive(true);
+    } catch {
+      setScanError('Camera access denied. Please allow camera permission in your browser.');
+    }
+  }
+
+  function closeCamera() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  }
+
+  function capturePhoto() {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    canvas.toBlob((blob) => {
+      const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+      handleCropFile(file);
+      closeCamera();
+    }, 'image/jpeg', 0.9);
+  }
 
   const currentTemperature = useMemo(() => {
     const temp = weather?.current?.temperature_2m;
@@ -318,15 +361,42 @@ export default function Dashboard() {
               <Button variant="primary" onClick={analyzeCrop} disabled={scanStatus === 'loading'}>
                 {scanStatus === 'loading' ? 'Analyzing...' : 'Analyze Crop'}
               </Button>
+              <Button variant="outline" onClick={openCamera} className="flex items-center gap-2">
+                <Camera size={18} /> Use Camera
+              </Button>
               {cropFile && (
-                <Button
-                  variant="outline"
-                  onClick={clearCropFile}
-                >
+                <Button variant="outline" onClick={clearCropFile}>
                   Remove Image
                 </Button>
               )}
             </div>
+
+            {cameraActive && (
+              <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full max-w-lg border-4 border-white"
+                />
+                <div className="flex gap-4 mt-6">
+                  <button
+                    onClick={capturePhoto}
+                    className="w-20 h-20 rounded-full bg-white border-4 border-black flex items-center justify-center hover:scale-105 transition-transform"
+                  >
+                    <Camera size={36} className="text-black" />
+                  </button>
+                  <button
+                    onClick={closeCamera}
+                    className="w-12 h-12 rounded-full bg-primary-red border-4 border-black flex items-center justify-center hover:scale-105 transition-transform self-end"
+                  >
+                    <X size={20} className="text-white" />
+                  </button>
+                </div>
+                <p className="text-white font-bold uppercase tracking-widest mt-4">Click the circle to capture</p>
+              </div>
+            )}
             {scanError && <p className="mt-4 font-bold text-primary-red">{scanError}</p>}
             {scanResult && (
               <div className="mt-6 bg-white border-4 border-black p-4 shadow-bauhaus-md">
