@@ -270,7 +270,7 @@ export default function Dashboard() {
           const langCode = i18n.language ? i18n.language.split('-')[0] : 'en';
           const [forecastResponse, placeResponse] = await Promise.all([
             fetch(
-              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=3`
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=celsius&timezone=auto&forecast_days=3`
             ),
             fetch(
               `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${langCode}`
@@ -529,8 +529,8 @@ export default function Dashboard() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
           <div>
-            <h1 className="text-6xl md:text-8xl">FARM<br/>OVERVIEW</h1>
-            <p className="text-xl font-bold uppercase tracking-widest mt-4">Welcome back, Developer</p>
+            <h1 className="text-6xl md:text-8xl" dangerouslySetInnerHTML={{ __html: t('dashboard.farm_overview', 'FARM<br/>OVERVIEW') }}></h1>
+            <p className="text-xl font-bold uppercase tracking-widest mt-4">{t('dashboard.welcome_back', 'Welcome back, Developer')}</p>
           </div>
           <div className="bg-primary-yellow border-4 border-black shadow-bauhaus-md p-4 rotate-2">
              <p className="font-bold uppercase flex items-center gap-2">
@@ -544,14 +544,14 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           
           {/* Disease Detection Card */}
-          <Card decoration="circle" decorationColor="bg-primary-red" className="lg:col-span-2 group">
+          <Card decoration="circle" decorationColor="bg-primary-red" className="relative group">
             <div className="flex justify-between items-start mb-8">
-              <h2 className="text-3xl md:text-4xl">CROP SCAN</h2>
+              <h2 className="text-3xl md:text-4xl mb-4">{t('dashboard.crop_scan', 'CROP SCAN')}</h2>
               <div className="w-12 h-12 bg-primary-red border-4 border-black rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Scan className="text-white" />
               </div>
             </div>
-            <p className="font-medium mb-8 max-w-md">Upload an image of your crop leaves to instantly detect diseases using our AI model.</p>
+            <p className="font-medium max-w-lg mb-8">{t('dashboard.crop_scan_desc', 'Upload an image of your crop leaves to instantly detect diseases using our AI model.')}</p>
             <input
               ref={fileInputRef}
               className="hidden"
@@ -649,7 +649,7 @@ export default function Dashboard() {
           {/* Weather & Irrigation */}
           <Card decoration="square" decorationColor="bg-primary-blue" className="bg-primary-blue text-white group">
             <div className="flex justify-between items-start mb-8">
-              <h2 className="text-3xl md:text-4xl text-white">WEATHER</h2>
+              <h2 className="text-3xl md:text-4xl text-white">{t('dashboard.weather', 'WEATHER')}</h2>
               <div className="w-12 h-12 bg-white border-4 border-black flex items-center justify-center group-hover:scale-110 transition-transform">
                 <CloudRain className="text-primary-blue" />
               </div>
@@ -657,19 +657,43 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div className="border-b-4 border-black pb-4">
                 <p className="text-5xl font-black mb-2">
-                  {currentTemperature === null ? '--' : currentTemperature}°
+                  {currentTemperature === null ? '--' : currentTemperature}°C
                 </p>
                 <p className="font-bold uppercase">
-                  {weatherStatus === 'loading' ? 'Loading Local Forecast' : forecastLabel}
+                  {weatherStatus === 'loading' ? t('dashboard.loading_forecast', 'Loading Local Forecast') : forecastLabel}
                 </p>
                 {weatherError && <p className="font-medium mt-3 text-white">{weatherError}</p>}
               </div>
               <div>
-                <p className="font-bold uppercase tracking-widest mb-2">Irrigation Advice</p>
+                <p className="font-bold uppercase tracking-widest mb-2">{t('dashboard.irrigation_advice', 'Irrigation Advice')}</p>
                 <div className="bg-white text-black p-4 border-4 border-black font-medium">
                   {irrigationAdvice}
                 </div>
               </div>
+              
+              {weather?.daily?.time && (
+                <div>
+                  <p className="font-bold uppercase tracking-widest mb-2">{t('dashboard.forecast_3day', '3-Day Forecast')}</p>
+                  <div className="flex gap-2">
+                    {weather.daily.time.map((timeStr, index) => {
+                      const date = new Date(timeStr);
+                      const dayName = new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString(i18n.language || 'en-US', { weekday: 'short' });
+                      const maxT = Math.round(weather.daily.temperature_2m_max[index]);
+                      const minT = Math.round(weather.daily.temperature_2m_min[index]);
+                      const code = weather.daily.weather_code[index];
+                      return (
+                        <div key={timeStr} className="flex-1 bg-white text-black border-4 border-black p-2 text-center">
+                          <p className="font-bold uppercase text-sm border-b-2 border-black pb-1 mb-1">{dayName}</p>
+                          <div className="h-10 flex items-center justify-center">
+                            <span className="text-xs font-bold leading-tight">{getWeatherLabel(code)}</span>
+                          </div>
+                          <p className="font-black text-sm">{maxT}° <span className="text-gray-400 font-bold">{minT}°</span></p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -681,7 +705,7 @@ export default function Dashboard() {
                     <div className="w-12 h-12 bg-white border-4 border-black flex items-center justify-center" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}>
                       <TrendingUp className="text-black" size={20} />
                     </div>
-                    <h2 className="text-3xl md:text-4xl">MARKET PRICE</h2>
+                    <h2 className="text-3xl md:text-4xl">{t('dashboard.market_price', 'MARKET PRICE')}</h2>
                   </div>
                   <p className="font-medium max-w-lg mb-6">{t('dashboard.market_desc_generic', 'AI prediction based on current market trends and historical data.')}</p>
                   <Button variant="outline" onClick={handleViewReport}>{t('dashboard.view_report', 'View Full Report')}</Button>
