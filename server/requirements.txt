@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+motor
+resend
+python-dotenv
+passlib[bcrypt]
+pyjwt
+python-multipart
+email-validator

@@ -1,0 +1,28 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-black uppercase tracking-tighter leading-[0.9];
+  }
+}
+
+@layer components {
+  .bauhaus-card {
+    @apply bg-white border-4 border-black shadow-bauhaus-lg transition-transform duration-200 hover:-translate-y-1 p-6 relative;
+  }
+  
+  .bauhaus-button {
+    @apply border-4 border-black shadow-bauhaus-md font-bold uppercase tracking-wider transition-all duration-200 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none;
+  }
+  
+  .bauhaus-input {
+    @apply w-full bg-white border-4 border-black p-3 font-medium outline-none focus:ring-4 focus:ring-primary-blue/30 transition-all duration-200;
+  }
+}
