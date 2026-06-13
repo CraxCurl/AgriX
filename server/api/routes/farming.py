@@ -20,8 +20,8 @@ async def detect_disease(file: UploadFile = File(...)):
 
 @router.get("/price-prediction")
 async def get_price_prediction(crop: str):
-    # Simulate price prediction model
-    base_price = random.uniform(100, 500)
+    # Simulate price prediction model for Indian context
+    base_price = random.uniform(2200, 2800)
     return {
         "crop": crop,
         "current_price_per_quintal": round(base_price, 2),

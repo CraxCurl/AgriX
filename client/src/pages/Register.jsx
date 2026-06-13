@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ArrowRight } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
+
 export default function Register() {
   const [step, setStep] = useState('register'); // register or otp
   const [name, setName] = useState('');
@@ -22,7 +24,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +53,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +82,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/resend-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/resend-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

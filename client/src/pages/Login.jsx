@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ArrowRight, Code } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +19,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -42,7 +44,7 @@ export default function Login() {
 
   const handleSandboxLogin = async () => {
     try {
-      const response = await fetch('/api/auth/sandbox-login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/sandbox-login`, {
         method: 'POST',
       });
       const data = await response.json();

@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
 
 const weatherCodeLabels = {
   0: 'Clear Sky',
@@ -63,6 +63,27 @@ export default function Dashboard() {
     localStorage.removeItem('token');
     navigate('/login', { replace: true });
   };
+
+  const [marketData, setMarketData] = useState(null);
+  const [marketStatus, setMarketStatus] = useState('loading');
+  const [marketError, setMarketError] = useState('');
+
+  useEffect(() => {
+    async function fetchMarketData() {
+      try {
+        setMarketStatus('loading');
+        const response = await fetch(`${API_BASE_URL}/api/farming/price-prediction?crop=Wheat`);
+        if (!response.ok) throw new Error('Failed to load market data.');
+        const data = await response.json();
+        setMarketData(data);
+        setMarketStatus('success');
+      } catch (err) {
+        setMarketStatus('error');
+        setMarketError(err.message);
+      }
+    }
+    fetchMarketData();
+  }, []);
 
   const fileInputRef = useRef(null);
   const cropPreviewRef = useRef('');
@@ -214,6 +235,10 @@ export default function Dashboard() {
       setScanStatus('error');
       setScanError(error.message || 'Crop scan failed.');
     }
+  }
+
+  function handleViewReport() {
+    alert("In a full application, this would open a detailed modal showing historical price charts, local buyer contacts, and seasonal trend graphs.");
   }
 
   return (
@@ -397,22 +422,30 @@ export default function Dashboard() {
                     <h2 className="text-3xl md:text-4xl">MARKET PRICE</h2>
                   </div>
                   <p className="font-medium max-w-lg mb-6">AI prediction for Wheat prices based on current market trends and historical data.</p>
-                  <Button variant="outline">View Full Report</Button>
+                  <Button variant="outline" onClick={handleViewReport}>View Full Report</Button>
                 </div>
                 
-                <div className="flex-1 w-full bg-white border-4 border-black p-6 shadow-bauhaus-md flex items-center justify-between">
-                   <div>
-                     <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Current Price</p>
-                     <p className="text-4xl font-black">$245 / Qtl</p>
-                   </div>
-                   <div className="w-1 bg-black self-stretch mx-4"></div>
-                   <div>
-                     <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Next Month (Est)</p>
-                     <p className="text-4xl font-black text-primary-red">$268 / Qtl</p>
-                   </div>
-                   <div className="bg-black text-white px-4 py-2 uppercase font-bold transform rotate-3">
-                      Sell Later
-                   </div>
+                <div className="flex-1 w-full bg-white border-4 border-black p-6 shadow-bauhaus-md flex items-center justify-between min-h-[120px]">
+                   {marketStatus === 'loading' ? (
+                     <p className="font-bold uppercase animate-pulse">Analyzing Market Data...</p>
+                   ) : marketStatus === 'error' ? (
+                     <p className="font-bold uppercase text-primary-red">{marketError}</p>
+                   ) : (
+                     <>
+                       <div>
+                         <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Current Price</p>
+                         <p className="text-3xl md:text-4xl font-black">₹{marketData.current_price_per_quintal} / Qtl</p>
+                       </div>
+                       <div className="w-1 bg-black self-stretch mx-4"></div>
+                       <div>
+                         <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">Next Month (Est)</p>
+                         <p className="text-3xl md:text-4xl font-black text-primary-red">₹{marketData.predicted_price_next_month} / Qtl</p>
+                       </div>
+                       <div className={`text-white px-4 py-2 uppercase font-bold transform rotate-3 ${marketData.advice === 'Hold' ? 'bg-black' : 'bg-primary-red'}`}>
+                          {marketData.advice}
+                       </div>
+                     </>
+                   )}
                 </div>
              </div>
           </Card>
