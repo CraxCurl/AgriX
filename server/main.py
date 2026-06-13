@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from dotenv import load_dotenv
 import uvicorn
+
+load_dotenv(Path(__file__).parent / ".env")
 
 app = FastAPI(
     title="AgriX API",

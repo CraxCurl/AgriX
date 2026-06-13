@@ -1,22 +1,25 @@
 from fastapi import APIRouter, File, UploadFile
-from dotenv import load_dotenv
 from google import genai
+import base64
 import os
 import random
 
-load_dotenv()
-
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
-
 router = APIRouter()
+
+
+def _get_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not set. Add it to your server/.env file.")
+    return genai.Client(api_key=api_key)
 
 
 @router.post("/disease-detection")
 async def detect_disease(file: UploadFile = File(...)):
     try:
+        client = _get_client()
         image_bytes = await file.read()
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         response = client.models.generate_content(
             model="gemini-2.0-flash",
@@ -25,30 +28,19 @@ async def detect_disease(file: UploadFile = File(...)):
                     "role": "user",
                     "parts": [
                         {
-                            "text": """
-                            Analyze this image carefully.
+                            "text": """Analyze this image carefully.
 
-                            Rules:
-                            1. If this is NOT a crop/plant/agriculture image, return exactly:
-                            INVALID_IMAGE
+Rules:
+1. If this is NOT a crop/plant/agriculture image, return exactly: INVALID_IMAGE
+2. If the crop is healthy, return exactly: HEALTHY
+3. If a disease is detected, return ONLY the disease name.
 
-                            2. If the crop is healthy, return exactly:
-                            HEALTHY
-
-                            3. If a disease is detected, return ONLY the disease name.
-
-                            Examples:
-                            HEALTHY
-                            Tomato Early Blight
-                            Leaf Rust
-                            Powdery Mildew
-                            INVALID_IMAGE
-                            """
+Examples: HEALTHY | Tomato Early Blight | Leaf Rust | Powdery Mildew | INVALID_IMAGE"""
                         },
                         {
                             "inline_data": {
                                 "mime_type": file.content_type,
-                                "data": image_bytes
+                                "data": image_b64
                             }
                         }
                     ]
@@ -78,8 +70,15 @@ async def detect_disease(file: UploadFile = File(...)):
             "recommendation": f"Disease detected: {disease_name}"
         }
 
+    except RuntimeError as e:
+        return {
+            "disease": "CONFIG ERROR",
+            "confidence": 0,
+            "recommendation": str(e)
+        }
     except Exception as e:
         msg = str(e)
+        print(f"[disease-detection ERROR] {type(e).__name__}: {msg}")
         if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
             return {
                 "disease": "RATE LIMITED",
