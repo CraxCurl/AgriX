@@ -8,19 +8,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-from api.routes import auth, farming
+from api.routes import auth, farming, user
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # In production, restrict this
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(farming.router, prefix="/api/farming", tags=["farming"])
+app.include_router(user.router, prefix="/api/user", tags=["user"])
 
 
 @app.get("/")

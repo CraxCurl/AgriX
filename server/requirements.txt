@@ -3,7 +3,9 @@ uvicorn
 motor
 resend
 python-dotenv
-passlib[bcrypt]
+bcrypt
 pyjwt
 python-multipart
 email-validator
+
+google-generativeai
