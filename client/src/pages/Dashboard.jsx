@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
+import { AlertTriangle, Bug, CloudRain, TrendingUp, Scan, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -50,6 +50,69 @@ function buildIrrigationAdvice(forecast, t) {
   }
 
   return t('dashboard.irrigation_advice_normal', 'Water on the next cool morning or evening if the top soil feels dry.');
+}
+
+function buildPestAlert(forecast, t) {
+  if (!forecast?.current) {
+    return {
+      level: 'waiting',
+      label: t('dashboard.pest_waiting_level', 'Waiting'),
+      title: t('dashboard.pest_waiting_title', 'Weather Data Needed'),
+      message: t('dashboard.pest_waiting_message', 'Share your location to estimate pest pressure for this week.'),
+      action: t('dashboard.pest_waiting_action', 'Enable weather access for field-specific alerts.'),
+      pests: [],
+    };
+  }
+
+  const temp = forecast.current.temperature_2m;
+  const humidity = forecast.current.relative_humidity_2m;
+  const rainChance = forecast.daily?.precipitation_probability_max?.[0] ?? 0;
+  const rainyNow = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(forecast.current.weather_code);
+  const warmAndHumid = temp >= 20 && temp <= 32 && humidity >= 70;
+  const hotAndDry = temp >= 30 && humidity <= 45;
+  const mildAndMoist = temp >= 18 && temp <= 28 && (humidity >= 65 || rainChance >= 45 || rainyNow);
+
+  if (warmAndHumid && rainChance >= 35) {
+    return {
+      level: 'high',
+      label: t('dashboard.pest_high_level', 'High Risk'),
+      title: t('dashboard.pest_high_title', 'High Risk Of Aphids This Week'),
+      message: t('dashboard.pest_high_message', 'Warm, humid weather can speed up aphid and whitefly outbreaks, especially on tender new growth.'),
+      action: t('dashboard.pest_high_action', 'Inspect leaf undersides every 2-3 days and isolate heavily affected patches early.'),
+      pests: ['Aphids', 'Whiteflies'],
+    };
+  }
+
+  if (hotAndDry) {
+    return {
+      level: 'medium',
+      label: t('dashboard.pest_mite_level', 'Medium Risk'),
+      title: t('dashboard.pest_mite_title', 'Watch For Mites'),
+      message: t('dashboard.pest_mite_message', 'Hot, dry conditions favor mite pressure and leaf speckling on stressed plants.'),
+      action: t('dashboard.pest_mite_action', 'Check dusty field edges first and avoid water stress where possible.'),
+      pests: ['Mites'],
+    };
+  }
+
+  if (mildAndMoist) {
+    return {
+      level: 'medium',
+      label: t('dashboard.pest_medium_level', 'Medium Risk'),
+      title: t('dashboard.pest_medium_title', 'Moisture Pest Watch'),
+      message: t('dashboard.pest_medium_message', 'Moist conditions can increase caterpillar, thrips, and fungal-linked pest activity.'),
+      action: t('dashboard.pest_medium_action', 'Scout dense crop areas and improve airflow where plants are crowded.'),
+      pests: ['Thrips', 'Caterpillars'],
+    };
+  }
+
+  return {
+    level: 'low',
+    label: t('dashboard.pest_low_level', 'Low Risk'),
+    title: t('dashboard.pest_low_title', 'Low Pest Pressure'),
+    message: t('dashboard.pest_low_message', 'Current temperature and humidity do not point to a major pest spike this week.'),
+    action: t('dashboard.pest_low_action', 'Keep routine scouting active and recheck after rain or sudden humidity changes.'),
+    pests: ['Routine Scout'],
+  };
 }
 
 export default function Dashboard() {
@@ -201,7 +264,7 @@ export default function Dashboard() {
           const langCode = i18n.language ? i18n.language.split('-')[0] : 'en';
           const [forecastResponse, placeResponse] = await Promise.all([
             fetch(
-              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=celsius&timezone=auto&forecast_days=3`
+              `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=celsius&timezone=auto&forecast_days=3`
             ),
             fetch(
               `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${langCode}`
@@ -294,8 +357,20 @@ export default function Dashboard() {
     return Number.isFinite(temp) ? Math.round(temp) : null;
   }, [weather]);
 
+  const currentHumidity = useMemo(() => {
+    const humidity = weather?.current?.relative_humidity_2m;
+    return Number.isFinite(humidity) ? Math.round(humidity) : null;
+  }, [weather]);
+
   const forecastLabel = weather ? t(`weather.${weather.current?.weather_code}`, getWeatherLabel(weather.current?.weather_code)) : t('dashboard.waiting_location', 'Waiting For Location');
   const irrigationAdvice = weather ? buildIrrigationAdvice(weather, t) : t('dashboard.irrigation_advice_waiting', 'Share your location to get local irrigation guidance.');
+  const pestAlert = buildPestAlert(weather, t);
+  const pestToneClasses = {
+    high: 'bg-primary-red text-white',
+    medium: 'bg-primary-yellow text-black',
+    low: 'bg-green-400 text-black',
+    waiting: 'bg-white text-black',
+  };
 
   function handleCropFile(file) {
     if (!file) return;
@@ -603,6 +678,54 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+          </Card>
+
+          {/* Pest Alert System */}
+          <Card decoration="circle" decorationColor="bg-primary-red" className="bg-white group">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <p className="font-black uppercase tracking-widest text-primary-red mb-2">{t('dashboard.ai_powered', 'AI Powered')}</p>
+                <h2 className="text-3xl md:text-4xl">{t('dashboard.pest_alert', 'PEST ALERT')}</h2>
+              </div>
+              <div className="w-12 h-12 bg-primary-red border-4 border-black rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Bug className="text-white" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="border-4 border-black bg-primary-blue text-white p-3">
+                <p className="text-xs font-black uppercase tracking-widest">{t('dashboard.temperature', 'Temp')}</p>
+                <p className="text-2xl font-black">{currentTemperature === null ? '--' : currentTemperature}Â°C</p>
+              </div>
+              <div className="border-4 border-black bg-primary-yellow text-black p-3">
+                <p className="text-xs font-black uppercase tracking-widest">{t('dashboard.humidity', 'Humidity')}</p>
+                <p className="text-2xl font-black">{currentHumidity === null ? '--' : currentHumidity}%</p>
+              </div>
+            </div>
+
+            <div className={`border-4 border-black p-4 shadow-bauhaus-md ${pestToneClasses[pestAlert.level]}`}>
+              <div className="flex items-center justify-between gap-3 border-b-4 border-black/80 pb-3 mb-3">
+                <p className="font-black uppercase tracking-widest">{pestAlert.label}</p>
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-2xl font-black uppercase leading-none mb-3">{pestAlert.title}</h3>
+              <p className="font-bold leading-snug">{pestAlert.message}</p>
+            </div>
+
+            <div className="mt-6 border-4 border-black p-4 bg-gray-50">
+              <p className="font-black uppercase tracking-widest text-sm mb-2">{t('dashboard.recommended_action', 'Recommended Action')}</p>
+              <p className="font-medium">{pestAlert.action}</p>
+            </div>
+
+            {pestAlert.pests.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {pestAlert.pests.map((pest) => (
+                  <span key={pest} className="border-4 border-black bg-white px-3 py-1 font-black uppercase text-xs shadow-bauhaus-sm">
+                    {pest}
+                  </span>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Price Predictions */}
