@@ -436,10 +436,7 @@ export default function Dashboard() {
               >
                 {bannerStatus === 'submitting' ? t('dashboard.saving', 'Saving...') : t('dashboard.submit_text', 'Submit Text')}
               </Button>
-                </Button>
-              )}
             </div>
-            {bannerStatus === 'recording' && <p className="mt-2 text-primary-red font-bold animate-pulse">{t('dashboard.recording_speak', 'Recording... Speak now.')}</p>}
             {bannerStatus === 'submitting' && <p className="mt-2 font-bold animate-pulse">{t('dashboard.processing_ai', 'Processing with AI...')}</p>}
           </div>
         )}
