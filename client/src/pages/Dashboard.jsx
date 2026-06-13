@@ -223,6 +223,10 @@ export default function Dashboard() {
     setIsRefreshingPrices(false);
   };
 
+  const handleViewReport = () => {
+    navigate('/report');
+  };
+
   const fileInputRef = useRef(null);
   const cropPreviewRef = useRef('');
   const videoRef = useRef(null);
