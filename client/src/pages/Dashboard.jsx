@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin } from 'lucide-react';
+import { CloudRain, TrendingUp, Scan, Mic, UploadCloud, MapPin, Square, Check } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
 
@@ -64,6 +64,114 @@ export default function Dashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login', { replace: true });
+  };
+
+  const [userProfile, setUserProfile] = useState(null);
+  const [farmDescMissing, setFarmDescMissing] = useState(false);
+  const [bannerInputText, setBannerInputText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const [bannerStatus, setBannerStatus] = useState('idle'); // idle, recording, submitting
+  
+  useEffect(() => {
+    async function fetchUser() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile(data);
+          if (!data.farm_description) {
+            setFarmDescMissing(true);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await submitVoiceDescription(audioBlob);
+      };
+      mediaRecorder.start();
+      setIsRecording(true);
+      setBannerStatus('recording');
+    } catch (err) {
+      console.error("Microphone access denied or error:", err);
+      alert("Could not access microphone.");
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+    }
+  };
+
+  const submitVoiceDescription = async (blob) => {
+    setBannerStatus('submitting');
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.webm');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/farm-description/voice`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (response.ok) {
+        setFarmDescMissing(false);
+      } else {
+        alert("Failed to process voice.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error submitting voice.");
+    }
+    setBannerStatus('idle');
+  };
+
+  const submitTextDescription = async () => {
+    if (!bannerInputText.trim()) return;
+    setBannerStatus('submitting');
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/farm-description/text`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ description: bannerInputText })
+      });
+      if (response.ok) {
+        setFarmDescMissing(false);
+      } else {
+        alert("Failed to process text.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error submitting text.");
+    }
+    setBannerStatus('idle');
   };
 
   const [marketData, setMarketData] = useState(null);
@@ -240,7 +348,7 @@ export default function Dashboard() {
   }
 
   function handleViewReport() {
-    alert("In a full application, this would open a detailed modal showing historical price charts, local buyer contacts, and seasonal trend graphs.");
+    window.open('/report', '_blank');
   }
 
   return (
@@ -269,6 +377,43 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 space-y-12">
         
+        {/* Farm Description Banner */}
+        {farmDescMissing && (
+          <div className="bg-primary-yellow border-4 border-black p-6 shadow-bauhaus-md relative">
+            <h2 className="text-2xl font-black uppercase mb-2">Tell Us About Your Farm</h2>
+            <p className="font-bold mb-4">Please describe what you are farming and the size of your land so we can personalize your dashboard.</p>
+            <div className="flex flex-col md:flex-row gap-4">
+              <input 
+                type="text" 
+                value={bannerInputText}
+                onChange={e => setBannerInputText(e.target.value)}
+                placeholder="e.g., I farm 5 acres of wheat and rice..." 
+                className="flex-1 border-4 border-black p-3 font-bold"
+                disabled={bannerStatus !== 'idle'}
+              />
+              <Button 
+                onClick={submitTextDescription} 
+                className="bg-black text-white"
+                disabled={bannerStatus !== 'idle' || !bannerInputText.trim()}
+              >
+                {bannerStatus === 'submitting' ? 'Saving...' : 'Submit Text'}
+              </Button>
+              <div className="hidden md:block w-1 bg-black"></div>
+              {isRecording ? (
+                <Button onClick={handleStopRecording} className="bg-primary-red text-white flex items-center gap-2">
+                  <Square size={16} fill="currentColor" /> Stop Recording
+                </Button>
+              ) : (
+                <Button onClick={handleStartRecording} className="bg-white text-black flex items-center gap-2 border-black" disabled={bannerStatus !== 'idle'}>
+                  <Mic size={16} /> Record Voice
+                </Button>
+              )}
+            </div>
+            {bannerStatus === 'recording' && <p className="mt-2 text-primary-red font-bold animate-pulse">Recording... Speak now.</p>}
+            {bannerStatus === 'submitting' && <p className="mt-2 font-bold animate-pulse">Processing with AI...</p>}
+          </div>
+        )}
+
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
           <div>

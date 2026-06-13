@@ -10,7 +10,29 @@ export default function Settings() {
   const [language, setLanguage] = useState(i18n.language || 'en');
   const [landUnit, setLandUnit] = useState('Acres');
   const [primaryCrop, setPrimaryCrop] = useState('Wheat');
+  const [farmDescription, setFarmDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/user/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.farm_description) {
+            setFarmDescription(data.farm_description);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     // Sync state with i18n just in case it was changed elsewhere
@@ -26,11 +48,28 @@ export default function Settings() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate backend call to save user preferences
-    setTimeout(() => {
+    const token = localStorage.getItem('token');
+    
+    try {
+      // Update farm description via text
+      if (farmDescription.trim()) {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/user/farm-description/text`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ description: farmDescription })
+        });
+      }
+      
       setIsSaving(false);
       alert('Preferences saved successfully!');
-    }, 800);
+    } catch (e) {
+      console.error(e);
+      setIsSaving(false);
+      alert('Error saving preferences.');
+    }
   };
 
   return (
@@ -98,6 +137,18 @@ export default function Settings() {
               <option value="Sugarcane">Sugarcane</option>
               <option value="Cotton">Cotton</option>
             </select>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t-4 border-black pt-6">
+            <label className="font-bold uppercase tracking-widest text-lg">Farm Description (Processed by AI)</label>
+            <p className="font-medium text-gray-600 mb-2">Update your farm description to automatically detect crops and land size.</p>
+            <textarea 
+              value={farmDescription} 
+              onChange={(e) => setFarmDescription(e.target.value)}
+              className="w-full border-4 border-black p-4 bg-white text-xl font-bold focus:outline-none focus:ring-4 focus:ring-primary-blue transition-all"
+              rows={4}
+              placeholder="E.g., I grow wheat on 5 acres of land..."
+            />
           </div>
 
           <Button 
