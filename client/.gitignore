@@ -27,7 +27,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+git rm --cached -r server/api/routes/__pycache__
 # Python
 __pycache__/
 *.pyc

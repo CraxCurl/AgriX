@@ -19,7 +19,7 @@ async def detect_disease(file: UploadFile = File(...)):
         image_bytes = await file.read()
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=[
                 {
                     "role": "user",
@@ -79,10 +79,17 @@ async def detect_disease(file: UploadFile = File(...)):
         }
 
     except Exception as e:
+        msg = str(e)
+        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+            return {
+                "disease": "RATE LIMITED",
+                "confidence": 0,
+                "recommendation": "Too many requests. Please wait a moment and try again."
+            }
         return {
             "disease": "ERROR",
             "confidence": 0,
-            "recommendation": str(e)
+            "recommendation": "Analysis failed. Please try again."
         }
 @router.get("/price-prediction")
 async def get_price_prediction(crop: str):

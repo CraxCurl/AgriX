@@ -172,14 +172,32 @@ export default function Dashboard() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
+  function compressImage(file, maxDimension = 1024, quality = 0.82) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+      };
+      img.src = url;
+    });
+  }
+
   async function analyzeCrop() {
     if (!cropFile) {
       setScanError('Choose or drop a crop image first.');
       return;
     }
 
+    const compressed = await compressImage(cropFile);
     const formData = new FormData();
-    formData.append('file', cropFile);
+    formData.append('file', compressed, 'crop.jpg');
 
     try {
       setScanStatus('loading');
