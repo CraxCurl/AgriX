@@ -51,26 +51,46 @@ def send_otp_email(to_email: str, otp: str, context: str = "registration"):
     <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @media only screen and (max-width: 600px) {{
+                .container {{
+                    width: 100% !important;
+                    border: none !important;
+                }}
+                .header-text {{
+                    font-size: 32px !important;
+                }}
+                .body-padding {{
+                    padding: 20px !important;
+                }}
+                .code-box {{
+                    font-size: 36px !important;
+                    letter-spacing: 6px !important;
+                    margin-left: 0 !important;
+                }}
+            }}
+        </style>
     </head>
-    <body style="font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 40px 20px;">
-        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 4px solid #121212; border-radius: 0;">
+    <body style="font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px 10px;">
+        <table class="container" align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 4px solid #121212; border-radius: 0;">
             <tr>
-                <td style="background-color: #0055ff; padding: 30px 40px; border-bottom: 4px solid #121212; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 42px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">AGRIX</h1>
+                <td class="body-padding" style="background-color: #0055ff; padding: 30px 20px; border-bottom: 4px solid #121212; text-align: center;">
+                    <h1 class="header-text" style="color: #ffffff; margin: 0; font-size: 42px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">AGRIX</h1>
                     <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; border: 2px solid #ffffff; display: inline-block; padding: 4px 10px;">Smart Farming</p>
                 </td>
             </tr>
             <tr>
-                <td style="padding: 40px;">
+                <td class="body-padding" style="padding: 40px 20px;">
                     <h2 style="color: #121212; font-size: 24px; font-weight: 800; margin: 0 0 20px 0; text-transform: uppercase;">Authentication Required</h2>
                     <p style="color: #3f3f46; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
                         Hello there,<br><br>
                         You recently requested an action requiring an OTP for <strong>{context}</strong>. Use the security code below to complete your request.
                     </p>
                     
-                    <div style="background-color: #F0C020; border: 4px solid #121212; text-align: center; padding: 25px; margin: 0 0 30px 0; position: relative;">
+                    <div style="background-color: #F0C020; border: 4px solid #121212; text-align: center; padding: 25px 15px; margin: 0 0 30px 0; position: relative;">
                         <span style="display: block; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; color: #121212; letter-spacing: 1px;">YOUR SECURITY CODE</span>
-                        <span style="font-size: 48px; font-weight: 900; letter-spacing: 12px; color: #121212; display: block; margin-left: 12px;">{otp}</span>
+                        <span class="code-box" style="font-size: 48px; font-weight: 900; letter-spacing: 12px; color: #121212; display: block; margin-left: 12px;">{otp}</span>
                     </div>
 
                     <p style="color: #71717a; font-size: 14px; line-height: 1.5; margin: 0 0 10px 0;">
@@ -82,7 +102,7 @@ def send_otp_email(to_email: str, otp: str, context: str = "registration"):
                 </td>
             </tr>
             <tr>
-                <td style="background-color: #121212; padding: 20px 40px; text-align: center;">
+                <td style="background-color: #121212; padding: 20px; text-align: center;">
                     <p style="color: #a1a1aa; font-size: 12px; margin: 0; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">Form Follows Function &bull; AgriX</p>
                 </td>
             </tr>
