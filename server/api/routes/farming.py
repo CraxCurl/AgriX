@@ -22,12 +22,6 @@ def _get_client():
         raise RuntimeError("GEMINI_API_KEY is not set.")
     return genai_v2.Client(api_key=api_key)
 
-def _get_client():
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is not set. Add it to your server/.env file.")
-    return genai.Client(api_key=api_key)
-
 
 @router.post("/disease-detection")
 async def detect_disease(file: UploadFile = File(...)):
