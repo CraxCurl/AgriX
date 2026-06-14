@@ -7,7 +7,7 @@ import { AlertTriangle, Bug, CloudRain, TrendingUp, Scan, UploadCloud, MapPin, C
 import { BrandLogo } from '../components/BrandLogo';
 import useVoiceCommand from '../hooks/useVoiceCommand';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://agrix-1coj.onrender.com');
 
 const weatherCodeLabels = {
   0: 'Clear Sky',
