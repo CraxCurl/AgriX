@@ -17,7 +17,7 @@ router = APIRouter()
 
 # ----------------- Upstream detect_disease -----------------
 def _get_client():
-    api_key = os.getenv("GEMINI_API_KEY_ANALYZE") or os.getenv("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY_SCAN") or os.environ.get("GEMINI_API_KEY_PEST") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not set.")
     return genai_v2.Client(api_key=api_key)
@@ -221,15 +221,6 @@ async def analyze_farmer_text(request: AnalyzeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/scan")
-async def scan_disease(file: UploadFile = File(...)):
-    """
-    Scans an uploaded image for plant diseases using the Scan API key.
-    """
-    scan_key = os.environ.get("GEMINI_API_KEY_SCAN")
-    if not scan_key:
-        raise HTTPException(status_code=500, detail="Scan API key not configured")
-
 @router.post("/pest-scan")
 async def scan_pest(file: UploadFile = File(...)):
     """
@@ -267,30 +258,6 @@ async def scan_pest(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Pest scan error: {e}")
         return {"result": "Pest analysis failed. Please try again."}
-        
-    # Configure with the Scan key
-    genai_v1.configure(api_key=scan_key)
-    model = genai_v1.GenerativeModel('gemini-flash-latest')
-    
-    try:
-        # Read the file content
-        contents = await file.read()
-        
-        # Prepare the image part for Gemini
-        image_part = {
-            "mime_type": file.content_type,
-            "data": contents
-        }
-        
-        prompt = "Analyze this plant image and tell me if there are any diseases. If there is a disease, what is it and what is the recommendation?"
-        response = model.generate_content([prompt, image_part])
-        
-        return {
-            "filename": file.filename,
-            "disease_analysis": response.text
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 class PestAnalysisRequest(BaseModel):
     location: str

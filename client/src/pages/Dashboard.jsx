@@ -183,8 +183,11 @@ export default function Dashboard() {
       if (response.ok) {
         const data = await response.json();
         setUserProfile(data);
-        if (!data.farm_description) {
+        const desc = data.farm_description;
+        if (!desc || desc === 'None' || desc === 'null' || (typeof desc === 'string' && desc.trim() === '')) {
           setFarmDescMissing(true);
+        } else {
+          setFarmDescMissing(false);
         }
         if (data.dark_mode) {
           setDarkMode(true);
