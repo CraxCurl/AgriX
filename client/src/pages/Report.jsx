@@ -75,9 +75,11 @@ export default function Report() {
                   </div>
                 )}
                 {reportData.graph_explanation && (
-                  <div className="mt-6 p-6 bg-gray-100 border-4 border-black font-medium text-lg leading-relaxed shadow-bauhaus-sm">
+                  <div className="mt-6 p-6 bg-gray-100 dark:bg-gray-800 border-4 border-black font-medium text-lg leading-relaxed shadow-bauhaus-sm text-black dark:text-white">
                     <span className="block font-black uppercase mb-2 text-primary-red">{t('report.ai_analysis', 'AI Analysis')}</span>
-                    {reportData.graph_explanation}
+                    {reportData.graph_explanation === 'Could not generate explanation.' 
+                      ? 'Real-time AI analysis unavailable due to API rate limits. Showing estimated fallback data.' 
+                      : reportData.graph_explanation}
                   </div>
                 )}
               </div>

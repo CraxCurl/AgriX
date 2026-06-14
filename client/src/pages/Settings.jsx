@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { BrandLogo } from '../components/BrandLogo';
+import { Mic, MicOff } from 'lucide-react';
+import useVoiceCommand from '../hooks/useVoiceCommand';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -15,7 +17,14 @@ export default function Settings() {
   const [landUnit, setLandUnit] = useState('Acres');
   const [primaryCrop, setPrimaryCrop] = useState('Wheat');
   const [farmDescription, setFarmDescription] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [farmerName, setFarmerName] = useState('');
+  
+  const onVoiceResult = (result) => {
+    setFarmDescription(result);
+  };
+  const { isListening, startListening, stopListening } = useVoiceCommand(onVoiceResult);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [isSavingDesc, setIsSavingDesc] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const showToast = (message, type = 'success') => {
@@ -35,9 +44,12 @@ export default function Settings() {
       });
       if (response.ok) {
         const data = await response.json();
+        if (data.name) setFarmerName(data.name);
         if (data.farm_description) {
           setFarmDescription(data.farm_description);
         }
+        if (data.land_size) setLandUnit(data.land_size);
+        if (data.crops && data.crops.length > 0) setPrimaryCrop(data.crops[0]);
       }
     } catch (err) {
       console.error(err);
@@ -60,7 +72,7 @@ export default function Settings() {
   };
 
   const handleUpdateFarmDescription = async () => {
-    setIsSaving(true);
+    setIsSavingDesc(true);
     const token = localStorage.getItem('token');
     
     try {
@@ -86,20 +98,38 @@ export default function Settings() {
       console.error(e);
       showToast(t('settings.toast_pref_error', 'Error saving preferences.'), 'error');
     }
-    setIsSaving(false);
+    setIsSavingDesc(false);
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
+    setIsSavingPrefs(true);
     try {
-      i18n.changeLanguage(language);
-      setIsSaving(false);
-      showToast(t('settings.toast_pref_success', 'Preferences saved successfully!'), 'success');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/user/settings`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: farmerName.trim(),
+          language: language,
+          land_size: landUnit,
+          primary_crop: primaryCrop
+        })
+      });
+      
+      if (response.ok) {
+        i18n.changeLanguage(language);
+        showToast(t('settings.toast_pref_success', 'Preferences saved successfully!'), 'success');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1200);
+      } else {
+        showToast('Failed to save preferences.', 'error');
+      }
     } catch (e) {
       console.error(e);
-      setIsSaving(false);
       showToast(t('settings.toast_pref_error', 'Error saving preferences.'), 'error');
     }
+    setIsSavingPrefs(false);
   };
 
   return (
@@ -131,8 +161,19 @@ export default function Settings() {
         </h1>
 
         <Card className="bg-white border-4 border-black shadow-bauhaus space-y-8 p-8">
-          
+
           <div className="flex flex-col gap-2">
+            <label className="font-bold uppercase tracking-widest text-lg">{t('settings.farmer_name', 'Farmer Name')}</label>
+            <input 
+              type="text"
+              value={farmerName}
+              onChange={(e) => setFarmerName(e.target.value)}
+              placeholder="e.g., John Doe"
+              className="w-full border-4 border-black p-4 bg-white text-xl font-bold focus:outline-none focus:ring-4 focus:ring-primary-blue transition-all"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 border-t-4 border-black pt-6">
             <label className="font-bold uppercase tracking-widest text-lg">{t('settings.language', 'Language')}</label>
             <select 
               value={language} 
@@ -203,14 +244,22 @@ export default function Settings() {
                 className="w-full bg-white border-4 border-black p-4 font-medium focus:outline-none focus:ring-4 focus:ring-primary-yellow focus:border-black transition-all resize-none mb-2"
                 placeholder={t('settings.farm_desc_placeholder', 'E.g., I farm 5 acres of wheat and 2 acres of sugarcane in Punjab.')}
               />
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center w-full">
+                <Button
+                  variant="outline"
+                  className={`border-4 border-black p-3 flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white'}`}
+                  onClick={isListening ? stopListening : startListening}
+                  title={isListening ? "Stop Recording" : "Start Voice Input"}
+                >
+                  {isListening ? <MicOff size={24} /> : <Mic size={24} />}
+                </Button>
                 <Button 
                   onClick={handleUpdateFarmDescription} 
-                  disabled={isSaving || !farmDescription.trim()}
+                  disabled={isSavingDesc || !farmDescription.trim()}
                   variant="primary"
                   className="bg-black text-white hover:bg-gray-800"
                 >
-                  {isSaving ? t('settings.saving', 'Saving...') : t('settings.update_farm_desc', 'Update Farm Description')}
+                  {isSavingDesc ? t('settings.saving', 'Saving...') : t('settings.update_farm_desc', 'Update Farm Description')}
                 </Button>
               </div>
           </div>
@@ -218,9 +267,9 @@ export default function Settings() {
           <Button 
             className="w-full py-4 text-xl" 
             onClick={handleSave} 
-            disabled={isSaving}
+            disabled={isSavingPrefs}
           >
-            {isSaving ? 'Saving...' : t('settings.save', 'Save Preferences')}
+            {isSavingPrefs ? 'Saving...' : t('settings.save', 'Save Preferences')}
           </Button>
 
         </Card>

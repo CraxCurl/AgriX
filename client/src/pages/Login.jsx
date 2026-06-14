@@ -65,7 +65,7 @@ export default function Login() {
   return (
     <div className="login-shell min-h-screen flex flex-col md:flex-row">
       {/* Left side: Branding / Decorative */}
-      <div className="login-brand-panel w-full md:w-1/2 bg-primary-blue p-12 flex flex-col justify-center items-center relative overflow-hidden border-b-4 md:border-b-0 md:border-r-4 border-black">
+      <div className="login-brand-panel w-full md:w-1/3 bg-primary-blue p-12 flex flex-col justify-center items-center relative overflow-hidden border-b-4 md:border-b-0 md:border-r-4 border-black">
         {/* Decorative background pattern */}
         <div className="absolute inset-0 bg-dot-pattern bg-dot-size opacity-20"></div>
         
@@ -78,7 +78,7 @@ export default function Login() {
       </div>
 
       {/* Right side: Login Form */}
-      <div className="login-form-panel w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center relative overflow-hidden">
+      <div className="login-form-panel w-full md:w-2/3 p-8 md:p-16 flex flex-col justify-center relative overflow-hidden">
         <div className="login-form-pattern" aria-hidden="true"></div>
         <div className="login-accent login-accent-yellow" aria-hidden="true"></div>
         <div className="login-accent login-accent-green" aria-hidden="true"></div>

@@ -105,7 +105,7 @@ export default function Register() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Left side: Branding / Decorative */}
-      <div className="w-full md:w-1/2 bg-primary-blue p-12 flex flex-col justify-center items-center relative overflow-hidden border-b-4 md:border-b-0 md:border-r-4 border-black">
+      <div className="w-full md:w-1/3 bg-primary-blue p-12 flex flex-col justify-center items-center relative overflow-hidden border-b-4 md:border-b-0 md:border-r-4 border-black">
         {/* Decorative background pattern */}
         <div className="absolute inset-0 bg-dot-pattern bg-dot-size opacity-20"></div>
         
@@ -118,7 +118,7 @@ export default function Register() {
       </div>
 
       {/* Right side: Register Form */}
-      <div className="w-full md:w-1/2 bg-background p-8 md:p-16 flex flex-col justify-center">
+      <div className="w-full md:w-2/3 bg-background p-8 md:p-16 flex flex-col justify-center">
         <div className="max-w-md w-full mx-auto">
           <Card decoration="triangle" decorationColor="bg-primary-yellow">
             <h2 className="text-4xl mb-6">{step === 'register' ? 'REGISTER' : 'VERIFY OTP'}</h2>

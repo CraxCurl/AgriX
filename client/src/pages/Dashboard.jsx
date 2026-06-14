@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { AlertTriangle, Bug, CloudRain, TrendingUp, Scan, UploadCloud, MapPin, Camera, X, Settings } from 'lucide-react';
+import { AlertTriangle, Bug, CloudRain, TrendingUp, Scan, UploadCloud, MapPin, Camera, X, Settings, Mic, MicOff, Sun, Moon, ClipboardList } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
+import useVoiceCommand from '../hooks/useVoiceCommand';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -111,7 +112,7 @@ function buildPestAlert(forecast, t) {
     title: t('dashboard.pest_low_title', 'Low Pest Pressure'),
     message: t('dashboard.pest_low_message', 'Current temperature and humidity do not point to a major pest spike this week.'),
     action: t('dashboard.pest_low_action', 'Keep routine scouting active and recheck after rain or sudden humidity changes.'),
-    pests: ['Routine Scout'],
+    pests: [],
   };
 }
 
@@ -136,6 +137,36 @@ export default function Dashboard() {
   const [bannerStatus, setBannerStatus] = useState('idle'); // idle, submitting
   
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [darkMode, setDarkMode] = useState(false);
+  
+  // Removed Routine Scout States
+
+  const toggleDarkMode = async () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    if (newDarkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/user/settings`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dark_mode: newDarkMode })
+        });
+      } catch (e) {
+        console.error("Failed to save dark mode preference");
+      }
+    }
+  };
+
+  const onVoiceResult = (result) => {
+    setBannerInputText(result);
+  };
+  const { isListening, startListening, stopListening } = useVoiceCommand(onVoiceResult);
+  
+
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -154,6 +185,13 @@ export default function Dashboard() {
         setUserProfile(data);
         if (!data.farm_description) {
           setFarmDescMissing(true);
+        }
+        if (data.dark_mode) {
+          setDarkMode(true);
+          document.documentElement.classList.add('dark');
+        } else {
+          setDarkMode(false);
+          document.documentElement.classList.remove('dark');
         }
       }
     } catch (err) {
@@ -240,10 +278,115 @@ export default function Dashboard() {
   const [scanError, setScanError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  
+  const [weatherPestAnalysis, setWeatherPestAnalysis] = useState(() => localStorage.getItem('pestAnalysis') || null);
+  const [isWeatherPestLoading, setIsWeatherPestLoading] = useState(false);
+
+  const handleGetWeatherPestForecast = async () => {
+    if (currentTemperature === null || currentHumidity === null) return;
+    setIsWeatherPestLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/farming/weather-pest-forecast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temperature: currentTemperature,
+          humidity: currentHumidity,
+          location: forecastLabel,
+          crop: userProfile?.crops?.[0] || 'crops'
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setWeatherPestAnalysis(data.analysis);
+        localStorage.setItem('pestAnalysis', data.analysis);
+      }
+    } catch (e) {
+      console.error(e);
+      const fallback = "Failed to get AI forecast. Please try again later.";
+      setWeatherPestAnalysis(fallback);
+      localStorage.setItem('pestAnalysis', fallback);
+    }
+    setIsWeatherPestLoading(false);
+  };
+
+  const [cropRecommendation, setCropRecommendation] = useState('');
+  const [isCropRecLoading, setIsCropRecLoading] = useState(false);
+  const [activeMarketTab, setActiveMarketTab] = useState(0);
+  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
+
+  const handleGetCropRecommendation = async () => {
+    if (currentTemperature === null || currentHumidity === null) return;
+    setIsCropRecLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/farming/crop-recommendation`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temperature: currentTemperature,
+          humidity: currentHumidity,
+          location: userProfile?.location || locationLabel || 'Local farm',
+          current_crops: userProfile?.farm_description || userProfile?.crops?.join(', ') || 'Unknown crops'
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCropRecommendation(data.recommendation);
+      } else {
+        setCropRecommendation("Failed to get AI crop recommendation. Please try again later.");
+      }
+    } catch (e) {
+      console.error(e);
+      setCropRecommendation("Error communicating with AI service.");
+    }
+    setIsCropRecLoading(false);
+  };
   const [locationLabel, setLocationLabel] = useState('Requesting location...');
   const [weather, setWeather] = useState(null);
   const [weatherStatus, setWeatherStatus] = useState('loading');
   const [weatherError, setWeatherError] = useState('');
+
+  const [cameraMode, setCameraMode] = useState('disease');
+  const [pestScanResult, setPestScanResult] = useState('');
+  const [pestScanStatus, setPestScanStatus] = useState('idle');
+
+  const [aiPestAnalysis, setAiPestAnalysis] = useState(null);
+  const [isPestLoading, setIsPestLoading] = useState(false);
+
+  const fetchAiPestAnalysis = async () => {
+    if (!weather || !locationLabel) return;
+    const temp = weather.current?.temperature_2m;
+    const humidity = weather.current?.relative_humidity_2m;
+    if (temp == null || humidity == null) return;
+    
+    setIsPestLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/farming/pest-analysis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          location: locationLabel, 
+          temperature: temp, 
+          humidity: humidity, 
+          crops: userProfile?.crops || [] 
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAiPestAnalysis(data.analysis);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsPestLoading(false);
+  };
+
+  useEffect(() => {
+    if (weatherStatus === 'ready' && userProfile) {
+      fetchAiPestAnalysis();
+    }
+  }, [weatherStatus, locationLabel, userProfile?.crops, weather]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -318,8 +461,9 @@ export default function Dashboard() {
     }
   }, [cameraActive]);
 
-  async function openCamera() {
+  async function openCamera(mode = 'disease') {
     setScanError('');
+    setCameraMode(mode);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
@@ -347,7 +491,11 @@ export default function Dashboard() {
     canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
     canvas.toBlob((blob) => {
       const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-      handleCropFile(file);
+      if (cameraMode === 'pest') {
+        analyzePestImage(file);
+      } else {
+        handleCropFile(file);
+      }
       closeCamera();
     }, 'image/jpeg', 0.9);
   }
@@ -424,6 +572,27 @@ export default function Dashboard() {
     });
   }
 
+  async function analyzePestImage(file) {
+    const compressed = await compressImage(file);
+    const formData = new FormData();
+    formData.append('file', compressed, 'pest.jpg');
+    try {
+      setPestScanStatus('loading');
+      setPestScanResult('');
+      const response = await fetch(`${API_BASE_URL}/api/farming/pest-scan`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Pest scan failed');
+      const data = await response.json();
+      setPestScanResult(data.result);
+      setPestScanStatus('success');
+    } catch (e) {
+      setPestScanStatus('error');
+      setPestScanResult(e.message || 'Pest scan failed.');
+    }
+  }
+
   async function analyzeCrop() {
     if (!cropFile) {
       setScanError('Choose or drop a crop image first.');
@@ -455,13 +624,23 @@ export default function Dashboard() {
     }
   }
 
+  // Routine Scout logic moved to Inspection tab
+
   return (
     <div className="dashboard-shell min-h-screen bg-background">
       {/* Top Navigation */}
       <nav className="border-b-4 border-black bg-white px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <BrandLogo tagline="Smart Farming" markClassName="w-11 h-11" />
         <div className="flex items-center gap-4">
-           <Button variant="ghost" shape="pill" onClick={() => navigate('/settings')} className="flex gap-2">
+           <Button variant="outline" onClick={toggleDarkMode} className="flex gap-2 py-2 px-4 text-sm items-center">
+             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+             <span className="hidden md:inline">{darkMode ? 'LIGHT' : 'DARK'}</span>
+           </Button>
+           <Button variant="outline" onClick={() => navigate('/inspection')} className="flex gap-2 py-2 px-4 text-sm items-center">
+             <ClipboardList size={18} />
+             <span className="hidden md:inline">{t('nav.inspection', 'Inspection')}</span>
+           </Button>
+           <Button variant="outline" onClick={() => navigate('/settings')} className="flex gap-2 py-2 px-4 text-sm items-center">
              <Settings size={18} />
              <span className="hidden md:inline">{t('nav.settings', 'Settings')}</span>
            </Button>
@@ -497,6 +676,14 @@ export default function Dashboard() {
                 className="flex-1 border-4 border-black p-3 font-bold"
                 disabled={bannerStatus !== 'idle'}
               />
+              <Button
+                variant="outline"
+                className={`border-4 border-black p-3 flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white'}`}
+                onClick={isListening ? stopListening : startListening}
+                title={isListening ? "Stop Recording" : "Start Voice Input"}
+              >
+                {isListening ? <MicOff size={24} /> : <Mic size={24} />}
+              </Button>
               <Button 
                 onClick={submitTextDescription} 
                 className="bg-black text-white"
@@ -510,17 +697,49 @@ export default function Dashboard() {
         )}
 
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
-          <div>
-            <h1 className="text-6xl md:text-8xl" dangerouslySetInnerHTML={{ __html: t('dashboard.farm_overview', 'FARM<br/>OVERVIEW') }}></h1>
-            <p className="text-xl font-bold uppercase tracking-widest mt-4">{t('dashboard.welcome', 'Welcome back, Developer')}</p>
+        <div>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b-4 border-black">
+            <div>
+              <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none">
+                {t('dashboard.welcome', 'WELCOME BACK,')}<br/>
+                <span className="text-primary-green">{userProfile?.name ? userProfile.name.toUpperCase() : t('dashboard.farmer', 'FARMER')}</span>
+              </h1>
+              <p className="text-xl font-bold uppercase tracking-widest mt-4">
+                {t('dashboard.overview_subtitle', "HERE'S WHAT'S HAPPENING ON YOUR FARM")}
+              </p>
+            </div>
+            <div className="bg-primary-yellow border-4 border-black shadow-bauhaus-md p-4 rotate-2">
+               <p className="font-bold uppercase flex items-center gap-2">
+                 <MapPin size={18} />
+                 {t('dashboard.location', 'Location')}: {locationLabel}
+               </p>
+            </div>
           </div>
-          <div className="bg-primary-yellow border-4 border-black shadow-bauhaus-md p-4 rotate-2">
-             <p className="font-bold uppercase flex items-center gap-2">
-               <MapPin size={18} />
-               {t('dashboard.location', 'Location')}: {locationLabel}
-             </p>
-          </div>
+          {userProfile?.farm_description && (
+            <div className="mt-6 bg-white border-4 border-black p-8 shadow-bauhaus-md min-h-[12rem] flex flex-col md:flex-row gap-8">
+              <div className="flex-1">
+                <span className="uppercase tracking-widest text-primary-red text-xs font-black block mb-4">{t('dashboard.farm_profile', 'FARM PROFILE (AI PROCESSED)')}</span>
+                <p className="font-bold text-2xl leading-relaxed">{userProfile.farm_description}</p>
+              </div>
+              
+              <div className="flex-1 border-t-4 md:border-t-0 md:border-l-4 border-black pt-6 md:pt-0 md:pl-8">
+                <span className="uppercase tracking-widest text-primary-green text-xs font-black block mb-4">AI CROP RECOMMENDATION</span>
+                
+                {!cropRecommendation && !isCropRecLoading ? (
+                  <div>
+                    <p className="font-bold text-lg mb-4">Discover the best crops to plant next based on your local weather and crop rotation history.</p>
+                    <Button onClick={handleGetCropRecommendation} className="bg-black text-white w-full uppercase tracking-widest text-sm font-black py-3">
+                      Get AI Planting Advice
+                    </Button>
+                  </div>
+                ) : isCropRecLoading ? (
+                  <p className="font-bold text-lg animate-pulse text-gray-500">Analyzing weather, location, and soil rotation data...</p>
+                ) : (
+                  <p className="font-bold text-lg leading-relaxed whitespace-pre-wrap">{cropRecommendation}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Dashboard Grid */}
@@ -582,7 +801,7 @@ export default function Dashboard() {
               <Button variant="primary" onClick={analyzeCrop} disabled={scanStatus === 'loading'}>
                 {scanStatus === 'loading' ? t('dashboard.analyzing', 'Analyzing...') : t('dashboard.analyze', 'Analyze Crop')}
               </Button>
-              <Button variant="outline" onClick={openCamera} className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => openCamera('disease')} className="flex items-center gap-2">
                 <Camera size={18} /> {t('dashboard.use_camera', 'Use Camera')}
               </Button>
               {cropFile && (
@@ -615,9 +834,10 @@ export default function Dashboard() {
                     <X size={20} className="text-white" />
                   </button>
                 </div>
-                <p className="text-white font-bold uppercase tracking-widest mt-4">Click the circle to capture</p>
+                <p className="text-white font-bold uppercase tracking-widest mt-4">{t('dashboard.click_capture', 'Click the circle to capture')}</p>
               </div>
             )}
+
             {scanError && <p className="mt-4 font-bold text-primary-red">{scanError}</p>}
             {scanResult && (
               <div className="mt-6 bg-white border-4 border-black p-4 shadow-bauhaus-md">
@@ -695,7 +915,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="border-4 border-black bg-primary-blue text-white p-3">
                 <p className="text-xs font-black uppercase tracking-widest">{t('dashboard.temperature', 'Temp')}</p>
-                <p className="text-2xl font-black">{currentTemperature === null ? '--' : currentTemperature}Â°C</p>
+                <p className="text-2xl font-black">{currentTemperature === null ? '--' : currentTemperature}°C</p>
               </div>
               <div className="border-4 border-black bg-primary-yellow text-black p-3">
                 <p className="text-xs font-black uppercase tracking-widest">{t('dashboard.humidity', 'Humidity')}</p>
@@ -712,18 +932,60 @@ export default function Dashboard() {
               <p className="font-bold leading-snug">{pestAlert.message}</p>
             </div>
 
-            <div className="mt-6 border-4 border-black p-4 bg-gray-50">
-              <p className="font-black uppercase tracking-widest text-sm mb-2">{t('dashboard.recommended_action', 'Recommended Action')}</p>
-              <p className="font-medium">{pestAlert.action}</p>
+            <div className="mt-6 border-4 border-black p-4 bg-yellow-50">
+              <p className="font-black uppercase tracking-widest text-primary-red text-sm mb-3">
+                {t('dashboard.ai_pest_forecast', 'AI Pest Forecast & Recommendations')}
+              </p>
+              
+              {!weatherPestAnalysis && !isWeatherPestLoading && currentTemperature !== null ? (
+                <div className="space-y-3">
+                  <p className="font-medium text-sm">
+                    Based on your local weather ({currentTemperature}°C, {currentHumidity}% humidity), would you like AI to predict potential pests for your crop and provide actionable recommendations?
+                  </p>
+                  <Button 
+                    onClick={handleGetWeatherPestForecast} 
+                    className="bg-black text-white py-2 text-sm uppercase tracking-widest font-black"
+                  >
+                    Get AI Recommendations
+                  </Button>
+                </div>
+              ) : isWeatherPestLoading ? (
+                <p className="font-medium animate-pulse text-gray-500 text-sm">Analyzing weather and crop data via AI...</p>
+              ) : weatherPestAnalysis ? (
+                <p className="font-medium text-sm leading-relaxed whitespace-pre-wrap">{weatherPestAnalysis}</p>
+              ) : (
+                <p className="font-medium text-sm text-gray-500">Weather data unavailable for AI forecast.</p>
+              )}
             </div>
+
+            {/* Removed Routine Scout UI */}
 
             {pestAlert.pests.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {pestAlert.pests.map((pest) => (
-                  <span key={pest} className="border-4 border-black bg-white px-3 py-1 font-black uppercase text-xs shadow-bauhaus-sm">
+                  <button 
+                    key={pest} 
+                    onClick={() => openCamera('pest')}
+                    title={t('dashboard.click_to_scan', 'Click to scan with camera')}
+                    className="border-4 border-black bg-white px-3 py-1 font-black uppercase text-xs shadow-bauhaus-sm hover:bg-black hover:text-white transition-colors cursor-pointer active:translate-y-[2px] active:shadow-none"
+                  >
                     {pest}
-                  </span>
+                  </button>
                 ))}
+              </div>
+            )}
+            
+            {(pestScanStatus !== 'idle' || pestScanResult) && (
+              <div className="mt-4 border-4 border-black p-4 bg-white shadow-bauhaus-sm">
+                <p className="font-black uppercase tracking-widest text-primary-red mb-2 text-sm">Scout Result</p>
+                {pestScanStatus === 'loading' ? (
+                  <p className="font-medium animate-pulse text-gray-500">Scanning crop for pests...</p>
+                ) : (
+                  <p className="font-bold">{pestScanResult}</p>
+                )}
+                {pestScanStatus !== 'loading' && (
+                  <Button variant="outline" onClick={() => { setPestScanStatus('idle'); setPestScanResult(''); }} className="mt-3 text-xs py-1 px-3">Clear Result</Button>
+                )}
               </div>
             )}
           </Card>
@@ -755,37 +1017,73 @@ export default function Dashboard() {
                             {isRefreshingPrices ? t('dashboard.refreshing', 'Refreshing...') : t('dashboard.refresh_prices', 'Refresh Prices')}
                           </Button>
                         </div>
-                        <div className="flex flex-col gap-6 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
-                          {marketDataArray.map((md, idx) => (
-                            <div key={idx} className="bg-white border-4 border-black p-6 shadow-bauhaus-md flex flex-col justify-center min-h-[120px]">
-                              <h3 className="text-xl font-black uppercase mb-4 pb-2 border-b-4 border-black inline-block">
-                                {t('settings.' + md.crop.toLowerCase().replace(/ \/ .*/, '').replace(/ /g, '_'), md.crop)}
-                              </h3>
-                              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
-                                <div className="text-center sm:text-left">
-                                  <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.current_price', 'Current Price')}</p>
-                                  <p className="text-3xl md:text-4xl font-black">₹{md.current_price_per_quintal} / {t('dashboard.qtl', 'Qtl')}</p>
-                                  {md.lastFetched && <p className="text-xs text-gray-500 mt-1 uppercase">{t('dashboard.last_fetched', 'Last Fetched')}: {new Date(md.lastFetched).toLocaleDateString()}</p>}
-                                </div>
-                                <div className="hidden sm:block w-1 bg-black self-stretch mx-4"></div>
-                                <div className="text-center sm:text-left">
-                                  <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.next_month', 'Next Month (Est)')}</p>
-                                  <p className="text-3xl md:text-4xl font-black text-primary-red">₹{md.predicted_price_next_month} / {t('dashboard.qtl', 'Qtl')}</p>
-                                </div>
-                                <div className="flex flex-col items-center gap-2 mt-4 sm:mt-0">
-                                  <div className={`text-white px-4 py-2 uppercase font-bold transform rotate-3 ${md.advice === 'Hold' ? 'bg-black' : 'bg-primary-red'}`}>
-                                     {md.advice === 'Hold' ? t('dashboard.hold', 'Hold') : t('dashboard.sell_now', 'Sell Now')}
+                        <div className="flex flex-col gap-6">
+                          {marketDataArray.length > 1 && (
+                            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                              {marketDataArray.map((md, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => { setActiveMarketTab(idx); setShowAiAnalysis(false); }}
+                                  className={`px-4 py-2 uppercase font-bold border-4 border-black whitespace-nowrap transition-colors ${activeMarketTab === idx ? 'bg-primary-red text-white' : 'bg-white hover:bg-gray-100'}`}
+                                >
+                                  {t('settings.' + md.crop.toLowerCase().replace(/ \/ .*/, '').replace(/ /g, '_'), md.crop)}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {(() => {
+                            const md = marketDataArray[activeMarketTab] || marketDataArray[0];
+                            if (!md) return null;
+                            return (
+                              <div className="bg-white border-4 border-black p-6 shadow-bauhaus-md flex flex-col justify-center min-h-[120px] shrink-0">
+                                {marketDataArray.length === 1 && (
+                                  <h3 className="text-xl font-black uppercase mb-4 pb-2 border-b-4 border-black inline-block">
+                                    {t('settings.' + md.crop.toLowerCase().replace(/ \/ .*/, '').replace(/ /g, '_'), md.crop)}
+                                  </h3>
+                                )}
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
+                                  <div className="text-center sm:text-left">
+                                    <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.current_price', 'Current Price')}</p>
+                                    <p className="text-3xl md:text-4xl font-black">₹{md.current_price_per_quintal} / {t('dashboard.qtl', 'Qtl')}</p>
+                                    {md.lastFetched && <p className="text-xs text-gray-500 mt-1 uppercase">{t('dashboard.last_fetched', 'Last Fetched')}: {new Date(md.lastFetched).toLocaleDateString()}</p>}
+                                  </div>
+                                  <div className="hidden sm:block w-1 bg-black self-stretch mx-4"></div>
+                                  <div className="text-center sm:text-left">
+                                    <p className="font-bold uppercase tracking-widest text-gray-500 mb-1">{t('dashboard.next_month', 'Next Month (Est)')}</p>
+                                    <p className="text-3xl md:text-4xl font-black text-primary-red">₹{md.predicted_price_next_month} / {t('dashboard.qtl', 'Qtl')}</p>
+                                  </div>
+                                  <div className="flex flex-col items-center gap-2 mt-4 sm:mt-0">
+                                    <div className={`text-white px-4 py-2 uppercase font-bold transform rotate-3 ${md.advice === 'Hold' ? 'bg-black' : 'bg-primary-red'}`}>
+                                       {md.advice === 'Hold' ? t('dashboard.hold', 'Hold') : t('dashboard.sell_now', 'Sell Now')}
+                                    </div>
                                   </div>
                                 </div>
+                                {md.graph_explanation && (
+                                  <div className="mt-6 pt-4 border-t-4 border-black">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <h3 className="font-bold uppercase tracking-widest text-primary-red text-sm">{t('dashboard.ai_analysis', 'AI Analysis')}</h3>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => setShowAiAnalysis(!showAiAnalysis)}
+                                        className="py-1 px-2 text-xs"
+                                      >
+                                        {showAiAnalysis ? 'Hide' : 'Show'} Analysis
+                                      </Button>
+                                    </div>
+                                    {showAiAnalysis && (
+                                      <p className="font-medium text-sm leading-relaxed mt-4">
+                                        {md.graph_explanation === 'Could not generate explanation.' 
+                                          ? 'Real-time AI analysis unavailable due to API rate limits. Showing estimated fallback data.' 
+                                          : md.graph_explanation}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              {md.graph_explanation && (
-                                <div className="mt-6 pt-4 border-t-4 border-black">
-                                  <h3 className="font-bold uppercase tracking-widest text-primary-red mb-2 text-sm">{t('dashboard.ai_analysis', 'AI Analysis')}</h3>
-                                  <p className="font-medium text-sm leading-relaxed">{md.graph_explanation}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })()}
                         </div>
                       </>
                     ) : (

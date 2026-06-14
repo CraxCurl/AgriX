@@ -13,6 +13,55 @@
   }
 }
 
+/* Dark Mode Beta Overrides */
+.dark body, .dark .bg-background {
+  background-color: #121212 !important;
+  color: #e5e5e5 !important;
+}
+
+.dark .bg-white, .dark .bauhaus-card, .dark nav {
+  background-color: #1e1e1e !important;
+  color: #e5e5e5 !important;
+  border-color: #333 !important;
+}
+
+.dark .border-black {
+  border-color: #333 !important;
+}
+
+.dark .text-black, .dark .text-gray-800, .dark .text-gray-900 {
+  color: #e5e5e5 !important;
+}
+
+.dark .text-gray-500, .dark .text-gray-600 {
+  color: #a3a3a3 !important;
+}
+
+.dark .bg-gray-50, .dark .hover\:bg-gray-100:hover {
+  background-color: #262626 !important;
+  color: #e5e5e5 !important;
+}
+
+.dark .bg-yellow-50 {
+  background-color: #3b2f00 !important;
+  color: #e5e5e5 !important;
+  border-color: #705800 !important;
+}
+
+.dark .shadow-\[8px_8px_0px_0px_rgba\(0\,0\,0\,1\)\] {
+  box-shadow: 8px 8px 0px 0px rgba(255,255,255,0.1) !important;
+}
+
+.dark .shadow-bauhaus-lg {
+  box-shadow: 8px 8px 0px 0px rgba(255,255,255,0.1) !important;
+}
+
+.dark input, .dark select, .dark textarea {
+  background-color: #262626 !important;
+  color: #e5e5e5 !important;
+  border-color: #444 !important;
+}
+
 @layer components {
   .bauhaus-card {
     @apply bg-white border-4 border-black shadow-bauhaus-lg transition-transform duration-200 hover:-translate-y-1 p-6 relative;

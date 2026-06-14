@@ -22,7 +22,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_d
     except jwt.PyJWTError:
         raise credentials_exception
     
-    if email == "developer_sandbox":
+    if email == "dev@agrix.com":
         return {"email": "dev@agrix.com", "name": "Developer"}
 
     user = await db["users"].find_one({"email": email})
